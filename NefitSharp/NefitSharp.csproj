@@ -48,6 +48,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Entities\Location.cs" />
+    <Compile Include="Entities\Program.cs" />
+    <Compile Include="Entities\Status.cs" />
+    <Compile Include="Entities\StatusCode.cs" />
     <Compile Include="NefitAPI.cs" />
     <Compile Include="NefitClient.cs" />
     <Compile Include="NefitEncryption.cs" />

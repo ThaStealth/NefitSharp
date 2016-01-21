@@ -11,12 +11,9 @@ namespace NefitSharp
     class NefitClient
     {
         private const string cHost = "wa2-mz36-qrmzh6.bosch.de";
-
         private const string cAccesskeyPrefix = "Ct7ZR03b_";
         private const string cRrcContactPrefix = "rrccontact_";
         private const string cRrcGatewayPrefix = "rrcgateway_";
-
-    
         private const int cPingInterval = 30 * 1000;
         private const int cAliveInterval = 1000;
 
