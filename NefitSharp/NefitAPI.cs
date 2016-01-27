@@ -1,7 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading;
 using System.Threading.Tasks;
+using agsXMPP.protocol.iq.privacy;
 using NefitSharp.Entities;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace NefitSharp
 {
@@ -33,6 +38,10 @@ namespace NefitSharp
         public void Connect()
         {
             _client.Connect();
+            while (!_client.Connected)
+            {
+                Thread.Sleep(10);
+            }
             if (!Connected)
             {
                 throw new UnauthorizedAccessException("Invalid serial/accesskey/password");
@@ -48,7 +57,9 @@ namespace NefitSharp
             }
         }
 
-        private string WaitForResponseSync()
+
+
+        private T WaitForResponseSync<T>()
         {
             int timeout = cRequestTimeout;
             while (timeout > 0)
@@ -57,98 +68,153 @@ namespace NefitSharp
                 {
                     if (_lastMessage != null)
                     {
-                        string result = _lastMessage;
+                        NefitJson<T> obj =  JsonConvert.DeserializeObject< NefitJson<T>>(_lastMessage);
                         _lastMessage = null;
-                        return result;
+                        if (obj != null)
+                        {
+                            return obj.value;
+                        }
+                        timeout = 0;
                     }
                 }
                 timeout -= cAliveInterval;
                 Thread.Sleep(cAliveInterval);
             }
-            return null;
+            return default(T);
         }
 
-        public async Task<Program[]> GetProgram()
+        public Program? GetProgram()
         {
-            Program[] result = null;
+            Task<Program?> task = GetProgramAsync();
+            task.Wait();
+            return task.Result;
+        }
+
+        public async Task<Program?> GetProgramAsync()
+        {
+            Program? result = null;
             await Task.Run(() =>
             {
                 _client.Get("/ecus/rrc/userprogram/activeprogram");
-                string activeProgram = WaitForResponseSync();
+                int activeProgram = WaitForResponseSync<int>();
                 _client.Get("/ecus/rrc/userprogram/program1");
-                string program1 = WaitForResponseSync();
+                NefitProgram[] program1 = WaitForResponseSync<NefitProgram[]>();
+                List<ProgramSwitch> programs1 = new List<ProgramSwitch>();
+
+                foreach (NefitProgram prog in program1)
+                {
+                   programs1.Add(new ProgramSwitch(prog.d,prog.t,prog.active=="on",prog.T));
+                }
+
+
                 _client.Get("/ecus/rrc/userprogram/program2");
-                string program2 = WaitForResponseSync();
-                result = null;//TODO: Write parser
+                NefitProgram[] program2 = WaitForResponseSync<NefitProgram[]>();
+                List<ProgramSwitch> programs2 = new List<ProgramSwitch>();
+
+                foreach (NefitProgram prog in program2)
+                {
+                    programs2.Add(new ProgramSwitch(prog.d, prog.t, prog.active == "on", prog.T));
+                }
+                result = new Program (programs1.ToArray(),programs2.ToArray(),activeProgram);//TODO: Write parser
             });
             return result;
         }
 
+        public Status? GetStatus()
+        {
+            Task<Status?> task = GetStatusAsync();
+            task.Wait();
+            return task.Result;
+        }
 
-        public async Task<Status?> GetStatus()
+        public async Task<Status?> GetStatusAsync()
         {
             Status? result = null;
             await Task.Run(() =>
             {
                 _client.Get("/ecus/rrc/uiStatus");
-                string status = WaitForResponseSync();
+                NefitStatus status = WaitForResponseSync<NefitStatus>();
                 _client.Get("/system/sensors/temperatures/outdoor_t1");
-                string outdoor = WaitForResponseSync();
-                result = null;//TODO: Write parser
+                double outdoor = WaitForResponseSync<double>();
+                result = new Status(status,outdoor);                
             });
             return result;
         }
 
+        public Location? GetLocation()
+        {
+            Task<Location?> task = GetLocationAsync();
+            task.Wait();
+            return task.Result;
+        }
 
-        public async Task<Location?> GetLocation()
+        public async Task<Location?> GetLocationAsync()
         {
             Location? result = null;
-            await Task.Run(() =>
+            await Task.Run(() => 
             {
                 _client.Get("/system/location/latitude");
-                string lat = WaitForResponseSync();
+                string lat = WaitForResponseSync<string>();                
                 _client.Get("/system/location/longitude");
-                string lon = WaitForResponseSync();
-                result = new Location(Convert.ToDouble(lat), Convert.ToDouble(lon));
+                string lon = WaitForResponseSync<string>();                
+                result = new Location(Convert.ToDouble(lat.Replace(".", Thread.CurrentThread.CurrentCulture.NumberFormat.NumberDecimalSeparator)), Convert.ToDouble(lon.Replace(".", Thread.CurrentThread.CurrentCulture.NumberFormat.NumberDecimalSeparator)));
             });
             return result;
         }
 
+        public StatusCode? GetDisplayCode()
+        {
+            Task<StatusCode?> task = GetDisplayCodeAsync();
+            task.Wait();
+            return task.Result;
+        }
 
-        public async Task<StatusCode?> GetDisplayCode()
+        public async Task<StatusCode?> GetDisplayCodeAsync()
         {
             StatusCode? result = null;
             await Task.Run(() =>
             {
                 _client.Get("/system/appliance/displaycode");
-                string displayCode = WaitForResponseSync();
+                string displayCode = WaitForResponseSync<string>();
                 _client.Get("/system/appliance/causecode");
-                string causeCode = WaitForResponseSync();                
-                result = new StatusCode(Convert.ToInt32(displayCode),Convert.ToInt32(causeCode));
+                string causeCode = WaitForResponseSync<string>();                
+                result = new StatusCode(displayCode,Convert.ToInt32(causeCode));
             });
             return result;
         }
 
-        public async Task<double?> GetPressure()
+        public double? GetPressure()
+        {
+            Task<double?> task = GetPressureAsync();
+            task.Wait();
+            return task.Result;
+        }
+
+        public async Task<double?> GetPressureAsync()
         {
             double? result = null;
             await Task.Run(() =>
             {
                 _client.Get("/system/appliance/systemPressure");
-                string pressure = WaitForResponseSync();
-                result = Convert.ToDouble(pressure);
+                result = WaitForResponseSync<double>();
             });
             return result;
         }
 
-        public async Task<double?> GetTemperature()
+        public double? GetTemperature()
+        {
+            Task<double?> task = GetTemperatureAsync();
+            task.Wait();
+            return task.Result;
+        }
+
+        public async Task<double?> GetTemperatureAsync()
         {
             double? result = null;
             await Task.Run(() =>
             {
                 _client.Get("/heatingCircuits/hc1/actualSupplyTemperature");
-                string temperature = WaitForResponseSync();
-                result = Convert.ToDouble(temperature);
+                result = WaitForResponseSync<double>();
             });
             return result;
         }
@@ -158,12 +224,12 @@ namespace NefitSharp
             bool result = false;
             await Task.Run(() =>
             {
-                _client.Put("/heatingCircuits/hc1/temperatureRoomManual", "{\"value\":\"" + temperature + "\"}");
-                WaitForResponseSync();
-                _client.Put("/heatingCircuits/hc1/manualTempOverride/status", "{\"value\":\"on\"}");
-                WaitForResponseSync();
+                _client.Put("/heatingCircuits/hc1/temperatureRoomManual", "{\"value\":" + temperature + "}");
+                WaitForResponseSync<string>();
+                _client.Put("/heatingCircuits/hc1/manualTempOverride/status", "{\"value\":'on'}");
+                WaitForResponseSync<string>();
                 _client.Put("/heatingCircuits/hc1/manualTempOverride/temperature", "{\"value\":\"" + temperature + "\"}");
-                WaitForResponseSync();
+                WaitForResponseSync<string>();
                 result = true;
             });
             return result;

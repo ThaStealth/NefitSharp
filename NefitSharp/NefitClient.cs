@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Threading;
-using Sharp.Xmpp.Client;
-using Sharp.Xmpp.Im;
+using System.Xml;
+using agsXMPP;
 
 namespace NefitSharp
 {
-    delegate void NefitResponse(string message);
-
     class NefitClient
     {
         private const string cHost = "wa2-mz36-qrmzh6.bosch.de";
@@ -17,15 +15,10 @@ namespace NefitSharp
         private const int cPingInterval = 30 * 1000;
         private const int cAliveInterval = 1000;
 
-        private XmppClient _client;
-        private readonly string _to;
-        private readonly string _jid;
-
+        private XmppClientConnection _client;
         private readonly NefitEncryption _encryptionHelper;
-        private Thread _keepAliveThread;
-        private bool _keepAlive;
-        
         private string _accessKey;
+        private string _serial;
 
         public event NefitResponse NefitServerMessage = delegate { };
 
@@ -37,44 +30,60 @@ namespace NefitSharp
                 {
                     return false;
                 }
-                return _client.Connected;
+                return _client.XmppConnectionState == XmppConnectionState.SessionStarted;
             }
         }
 
         public NefitClient(string serial, string accesskey, string password)
         {
+            _serial = serial;
             _accessKey = accesskey;
-            _encryptionHelper = new NefitEncryption(serial, accesskey, password);                        
-            _jid = cRrcContactPrefix + serial + "@" + cHost;
-            _to = cRrcGatewayPrefix + serial + "@" + cHost;           
+            _encryptionHelper = new NefitEncryption(serial, accesskey, password);
         }        
 
         public void Connect()
         {
-            if (_client != null || _keepAliveThread!=null)
+            if (_client != null)
             {
                 Disconnect();
             }
             try
             {
-                _client = new XmppClient(cHost, _jid, cAccesskeyPrefix + _accessKey);          
-                _keepAliveThread = new Thread(AliveHandler);
-                _keepAlive = true;
-                _keepAliveThread.IsBackground = true;                
-                _client.DefaultTimeOut = -1;
-                //  _client.Connect();
-                _client.Message += MessageReceived;
-                if (_client.Connected)
-                {
-                    _keepAliveThread.Start();
-                }
+                _client = new XmppClientConnection(cHost);
+                _client.Open(cRrcContactPrefix + _serial, cAccesskeyPrefix + _accessKey);
+                _client.Server = cHost;
+                _client.Resource = "";
+                _client.AutoAgents = false;                
+                _client.AutoRoster = true;
+                _client.AutoPresence = true;        
+                _client.OnReadXml += _client_OnReadXml;
+                _client.OnWriteXml += _client_OnWriteXml;                  
             }
-            catch(Exception e)
+            catch (Exception e)
             {
-                Debug.WriteLine(e.Message +" - "+e.StackTrace);
+                Debug.WriteLine(e.Message + " - " + e.StackTrace);
             }
         }
+
     
+
+        private void _client_OnReadXml(object sender, string xml)
+        {
+            Console.WriteLine("<< " + xml);
+
+            if (xml.StartsWith("<message"))
+            {
+                string[] response = xml.Split('\n');
+                string payload = response[response.Length-1];
+                payload = payload.Remove(payload.Length - 17, 17);
+                NefitServerMessage(_encryptionHelper.Decrypt(payload));                
+            }
+        }
+        private void _client_OnWriteXml(object sender, string xml)
+        {
+            Console.WriteLine(">> "+xml);
+        }
+
         public void Disconnect()
         {
             try
@@ -84,12 +93,6 @@ namespace NefitSharp
                     _client.Close();
                     _client = null;
                 }
-                if (_keepAliveThread != null)
-                {
-                    _keepAlive = false;
-                    _keepAliveThread.Abort();
-                    _keepAliveThread = null;
-                }
             }
             catch (Exception e)
             {
@@ -97,46 +100,16 @@ namespace NefitSharp
             }
         }
 
-        private void AliveHandler()
-        {
-            int pingTimeout = 0;
-            while (_keepAlive)
-            {
-                if (pingTimeout <= 0)
-                {
-                    _client.SendMessage(_to, "<presence/>");
-                    pingTimeout = cPingInterval;
-                }
-                Thread.Sleep(cAliveInterval);
-                pingTimeout -= cAliveInterval;
-            }
-        }
-
         public void Put(string uri, string data)
         {
-            string encryptedData = _encryptionHelper.Encrypt(data);            
-            _client.SendMessage(new Message(_to, $"PUT {uri} HTTP/1.1&#13;\nContent-Type: application/json&#13;\nContent-Length:{encryptedData.Length}&#13;\nUser-Agent:NefitEasy&#13;\n&#13;\n{encryptedData}") { From = _jid });
+            string encryptedData = _encryptionHelper.Encrypt(data);
+            _client.Send("<message from=\"" + _client.MyJID + "\" to=\"" + cRrcGatewayPrefix + _serial + "@" + cHost + "\"><body>PUT " + uri + " HTTP/1.1&amp;#13;Content-Type: application/json&amp;#13;Content-Length:"+encryptedData.Length+ "&amp;#13;User-Agent: NefitEasy&amp;#13;&amp;#13;" + encryptedData+"</body></message>");
+            //_client.Send(new GenericTag(_to, $"PUT {uri} HTTP/1.1&#13;\nContent-Type: application/json&#13;\nContent-Length:{encryptedData.Length}&#13;\nUser-Agent:NefitEasy&#13;\n&#13;\n{encryptedData}")); { From = _jid });
         }
 
         public void Get(string uri)
-        {            
-            _client.SendMessage(new Message(_to, $"GET {uri} HTTP/1.1&#13;\nUser-Agent:NefitEasy&#13;\n&#13;\n") { From = _jid });            
-        }
-
-        private void MessageReceived(object sender, MessageEventArgs e)
         {
-            if (e.Jid == _jid)
-            {
-                if (e.Message.Type == MessageType.Error)
-                {
-                    //error
-                }
-                else if (e.Message.Type == MessageType.Chat)
-                {
-                    //response
-                    NefitServerMessage(_encryptionHelper.Decrypt(e.Message.Body));
-                }
-            }
+            _client.Send("<message from=\"" + _client.MyJID + "\" to=\"" + cRrcGatewayPrefix + _serial + "@" + cHost + "\"><body>GET "+uri+" HTTP/1.1&amp;#13;User-Agent: NefitEasy&amp;#13;&amp;#13;</body></message>");                    
         }
     }
 }

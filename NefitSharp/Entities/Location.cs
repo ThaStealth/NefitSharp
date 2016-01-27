@@ -2,23 +2,14 @@
 {
     public struct Location
     {
-        private double _latitude;
-        private double _longitude;
+        public double Latitude { get; }
 
-        public double Latitude
-        {
-            get { return _latitude; }
-        }
-
-        public double Longitude
-        {
-            get { return _longitude; }
-        }
+        public double Longitude { get; }
 
         internal Location(double latitude, double longitude)
         {
-            _latitude = latitude;
-            _longitude = longitude;
+            Latitude = latitude;
+            Longitude = longitude;
         }
     }
 }
