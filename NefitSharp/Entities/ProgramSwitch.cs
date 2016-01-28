@@ -12,40 +12,12 @@ namespace NefitSharp.Entities
 
         internal ProgramSwitch(string day,int time, bool on, double temperature)
         {
-            DayOfWeek dwi;
-            switch (day)
-            {
-                default:
-                    dwi = DayOfWeek.Sunday;
-                    break;
-                case "Mo":
-                    dwi = DayOfWeek.Monday;
-                    break;
-                case "Tu":
-                    dwi = DayOfWeek.Tuesday;
-                    break;
-                case "We":
-                    dwi = DayOfWeek.Wednesday;
-                    break;
-                case "Th":
-                    dwi = DayOfWeek.Thursday;
-                    break;
-                case "Fr":
-                    dwi = DayOfWeek.Friday;
-                    break;
-                case "Sa":
-                    dwi = DayOfWeek.Saturday;
-                    break;
-            }
-            DateTime now = DateTime.Today;
-            while (now.DayOfWeek != dwi)
-            {
-                now = now.AddDays(1);
-            }
-            now = now.AddMinutes(time);
+            DateTime now = Utils.GetNextDate(day, time);
             Timestamp = now;
             On = on;
             Temperature = temperature;
         }
+
+
     }
 }

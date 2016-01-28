@@ -56,7 +56,7 @@
     <Compile Include="Entities\Internal\NefitJson.cs" />
     <Compile Include="Entities\Internal\NefitProgram.cs" />
     <Compile Include="Entities\Internal\NefitStatus.cs" />
-    <Compile Include="Entities\CVProgram.cs" />
+    <Compile Include="Entities\UserProgram.cs" />
     <Compile Include="Entities\ProgramSwitch.cs" />
     <Compile Include="Entities\Status.cs" />
     <Compile Include="Entities\StatusCode.cs" />

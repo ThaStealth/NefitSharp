@@ -11,6 +11,56 @@ using Newtonsoft.Json;
 
 namespace NefitSharp
 {
+
+    internal static class Utils
+    {
+        internal static string DoubleToString(double d)
+        {
+            return d.ToString().Replace(",", ".");
+        }
+
+        internal static double StringToDouble(string str)
+        {
+            return Convert.ToDouble(str.Replace(".", Thread.CurrentThread.CurrentCulture.NumberFormat.NumberDecimalSeparator));
+        }
+    
+        internal static DateTime GetNextDate(string day, int time)
+        {
+            DayOfWeek dwi;
+            switch (day)
+            {
+                default:
+                    dwi = DayOfWeek.Sunday;
+                    break;
+                case "Mo":
+                    dwi = DayOfWeek.Monday;
+                    break;
+                case "Tu":
+                    dwi = DayOfWeek.Tuesday;
+                    break;
+                case "We":
+                    dwi = DayOfWeek.Wednesday;
+                    break;
+                case "Th":
+                    dwi = DayOfWeek.Thursday;
+                    break;
+                case "Fr":
+                    dwi = DayOfWeek.Friday;
+                    break;
+                case "Sa":
+                    dwi = DayOfWeek.Saturday;
+                    break;
+            }
+            DateTime now = DateTime.Today;
+            while (now.DayOfWeek != dwi)
+            {
+                now = now.AddDays(1);
+            }
+            now = now.AddMinutes(time);
+            return now;
+        }
+    }
+
     public class NefitClient
     {
         private const string cHost = "wa2-mz36-qrmzh6.bosch.de";
@@ -214,7 +264,7 @@ namespace NefitSharp
 
         #region Sync Methods
 
-        public CVProgram GetProgram()
+        public UserProgram GetProgram()
         {
             return AwaitTask(GetProgramAsync());
         }
@@ -227,26 +277,6 @@ namespace NefitSharp
         public Location? GetLocation()
         {
             return AwaitTask(GetLocationAsync());
-        }
-
-        public StatusCode? GetDisplayCode()
-        {
-            return AwaitTask(GetDisplayCodeAsync());
-        }
-
-        public double? GetCVWaterTemperature()
-        {
-            return AwaitTask(GetCVWaterTemperatureAsync());
-        }
-
-        public double? GetPressure()
-        {
-            return AwaitTask(GetPressureAsync());
-        }
-
-        public string GetCVSerialNumber()
-        {
-            return AwaitTask(GetCVSerialNumberAsync());
         }
 
         public GasSample[] GetGasusage()
@@ -281,17 +311,21 @@ namespace NefitSharp
 
         #region Async commands
 
-        public async Task<CVProgram> GetProgramAsync()
+        public async Task<UserProgram> GetProgramAsync()
         {
-            CVProgram result = null;
+            UserProgram result = null;
             await Task.Run(() =>
             {
                 int activeProgram = GetSync<int>("/ecus/rrc/userprogram/activeprogram");
+                bool preheating = GetSync<string>("/ecus/rrc/userprogram/activeprogram") == "off";
+                bool fireplaceFunction = GetSync<string>("/ecus/rrc/userprogram/activeprogram") == "off";
+                string switchpointName1 = GetSync<string>("/ecus/rrc/userprogram/userswitchpointname1");
+                string switchpointName2 = GetSync<string>("/ecus/rrc/userprogram/userswitchpointname2");
                 NefitProgram[] program0 = GetSync<NefitProgram[]>("/ecus/rrc/userprogram/program0");
                 NefitProgram[] program1 = GetSync<NefitProgram[]>("/ecus/rrc/userprogram/program1");
                 NefitProgram[] program2 = GetSync<NefitProgram[]>("/ecus/rrc/userprogram/program2");
 
-                result = new CVProgram(program0, program1, program2,  activeProgram);
+                result = new UserProgram(program0, program1, program2, activeProgram, fireplaceFunction, preheating, switchpointName1, switchpointName2);
             });
             return result;
         }
@@ -311,7 +345,7 @@ namespace NefitSharp
                 string easyFirmware = GetSync<string>("/gateway/versionFirmware");
                 string easyHardware = GetSync<string>("/gateway/versionHardware");
                 string easyUuid = GetSync<string>("/gateway/uuid");
-                string cvSerial = GetCVSerialNumber();
+                string cvSerial = GetSync<string>("/system/appliance/serialnumber");
                 string cvVersion = GetSync<string>("/system/appliance/version");
                 string cvBurner = GetSync<string>("/system/interfaces/ems/brandbit");
                 result = new Information(ownerInfo[0], ownerInfo[1], ownerInfo[2], installerInfo[0], installerInfo[1],installerInfo[2],
@@ -329,7 +363,23 @@ namespace NefitSharp
                 NefitStatus status = GetSync<NefitStatus>("/ecus/rrc/uiStatus");
                 double outdoor = GetSync<double>("/system/sensors/temperatures/outdoor_t1");
                 string serviceStatus = GetSync<string>("/gateway/remote/servicestate");
-                result = new Status(status, serviceStatus, outdoor);
+                bool ignition = GetSync<string>("/ecus/rrc/pm/ignition/status")=="true";
+                bool refillNeeded = GetSync<string>("/ecus/rrc/pm/refillneeded/status") == "true";
+                bool closingValve = GetSync<string>("/ecus/rrc/pm/closingvalve/status") == "true";
+                bool shortTapping = GetSync<string>("/ecus/rrc/pm/shorttapping/status") == "true";
+                bool systemLeaking = GetSync<string>("/ecus/rrc/pm/systemleaking/status") == "true";
+                double systemPressure = GetSync<double>("/system/appliance/systemPressure");
+                double chSupplyTemperature = GetSync<double>("/heatingCircuits/hc1/actualSupplyTemperature");
+                string control = GetSync<string>("/heatingCircuits/hc1/control");
+                string operationMode = GetSync<string>("/heatingCircuits/hc1/operationMode");
+                string displayCode = GetSync<string>("/system/appliance/displaycode");                
+                string causeCode = GetSync<string>("/system/appliance/causecode");
+                StatusCode? code = null;
+                if (!string.IsNullOrEmpty(displayCode) && !string.IsNullOrEmpty(causeCode))
+                {
+                    code = new StatusCode(displayCode, Convert.ToInt32(causeCode));
+                }
+                result = new Status(status, serviceStatus, outdoor,operationMode,refillNeeded,ignition,closingValve,shortTapping,systemLeaking,systemPressure,chSupplyTemperature,code);
             });
             return result;
         }
@@ -341,39 +391,9 @@ namespace NefitSharp
             {
                 string lat = GetSync<string>("/system/location/latitude");
                 string lon = GetSync<string>("/system/location/longitude");
-                result = new Location(Convert.ToDouble(lat.Replace(".", Thread.CurrentThread.CurrentCulture.NumberFormat.NumberDecimalSeparator)), Convert.ToDouble(lon.Replace(".", Thread.CurrentThread.CurrentCulture.NumberFormat.NumberDecimalSeparator)));
+                result = new Location(Utils.StringToDouble(lat), Utils.StringToDouble(lon));
             });
             return result;
-        }
-
-        public async Task<StatusCode?> GetDisplayCodeAsync()
-        {
-            StatusCode? result = null;
-           await Task.Run(() =>
-            {
-                string displayCode = GetSync<string>("/system/appliance/displaycode");
-                string causeCode = GetSync<string>("/system/appliance/causecode");
-                if (!string.IsNullOrEmpty(displayCode) && !string.IsNullOrEmpty(causeCode))
-                {
-                    result= new StatusCode(displayCode, Convert.ToInt32(causeCode));
-                }
-            });
-            return result;
-        }
-        
-        public async Task<double?> GetPressureAsync()
-        {
-            return await Task.Run(() => GetSync<double>("/system/appliance/systemPressure"));            
-        }
-
-        public async Task<double?> GetCVWaterTemperatureAsync()
-        {
-            return await Task.Run(() => GetSync<double>("/heatingCircuits/hc1/actualSupplyTemperature"));            
-        }
-
-        public async Task<string> GetCVSerialNumberAsync()
-        {
-            return await Task.Run(() => GetSync<string>("/system/appliance/serialnumber"));
         }
 
         public async Task<GasSample[]> GetGasusageAsync()
@@ -381,7 +401,6 @@ namespace NefitSharp
             GasSample[] result = null;
             await Task.Run(() =>
             {
-//                int currentPage = GetSync<int>("/ecus/rrc/recordings/gasusagePointer")-1;
                 bool hasValidSamples = true;
                 int currentPage = 1;
                 List<GasSample> gasSamples = new List<GasSample>();
@@ -407,20 +426,18 @@ namespace NefitSharp
             return result;
         }
 
-
-
         public async Task<bool> SetTemperatureAsync(double temperature)
         {
             return await Task.Run(() =>
             {
-                bool result = PutSync("/heatingCircuits/hc1/temperatureRoomManual", "{\"value\":" + temperature.ToString().Replace(",",".") + "}");
+                bool result = PutSync("/heatingCircuits/hc1/temperatureRoomManual", "{\"value\":" + Utils.DoubleToString(temperature) + "}");
                 if (result)
                 {
                     result = PutSync("/heatingCircuits/hc1/manualTempOverride/status", "{\"value\":'on'}");
                 }
                 if (result)
                 {
-                    PutSync("/heatingCircuits/hc1/manualTempOverride/temperature", "{\"value\":\"" + temperature.ToString().Replace(",", ".") + "\"}");
+                    PutSync("/heatingCircuits/hc1/manualTempOverride/temperature", "{\"value\":\"" + Utils.DoubleToString(temperature) + "\"}");
                 }
                 return result;
             });
