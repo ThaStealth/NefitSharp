@@ -1,4 +1,4 @@
-namespace NefitSharp.Entities
+namespace NefitSharp.Entities.Internal
 {
     class NefitJson<T>
     {

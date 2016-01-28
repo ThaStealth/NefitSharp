@@ -1,5 +1,7 @@
-namespace NefitSharp.Entities
+namespace NefitSharp.Entities.Internal
 {
+    
+
     class NefitStatus
     {
         public string CTD { get; set; }

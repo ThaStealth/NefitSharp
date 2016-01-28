@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -59,7 +60,7 @@ namespace NefitSharp
             }
             catch (CryptographicException e)
             {
-                Console.WriteLine("A Cryptographic error occurred: {0}", e.Message);
+                Debug.WriteLine("A Cryptographic error occurred: {0}", e.Message);
                 return null;
             }
         }
@@ -82,7 +83,7 @@ namespace NefitSharp
             }
             catch (CryptographicException e)
             {
-                Console.WriteLine("A Cryptographic error occurred: {0}", e.Message);
+                Debug.WriteLine("A Cryptographic error occurred: {0}", e.Message);
                 return null;
             }
         }

@@ -10,11 +10,12 @@ namespace NefitSharp.Entities
 
         public double Temperature { get; }
 
-        public ProgramSwitch(string day,int time, bool on, double temperature)
+        internal ProgramSwitch(string day,int time, bool on, double temperature)
         {
-            DayOfWeek dwi = DayOfWeek.Sunday;
+            DayOfWeek dwi;
             switch (day)
             {
+                default:
                 case "Su":
                     dwi = DayOfWeek.Sunday;
                     break;
