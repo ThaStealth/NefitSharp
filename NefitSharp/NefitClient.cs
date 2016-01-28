@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml;
 using agsXMPP;
 using NefitSharp.Entities;
 using NefitSharp.Entities.Internal;
@@ -22,7 +23,7 @@ namespace NefitSharp
         private readonly string _accessKey;
         private readonly string _serial;
 
-        private string _lastMessage;
+        private NefitHTTPResponse _lastMessage;
         private readonly object _lockObj;
         private bool _authenticationError;
         private bool _readyForCommands;
@@ -83,8 +84,8 @@ namespace NefitSharp
                 _client.AutoAgents = false;
                 _client.AutoRoster = true;
                 _client.AutoPresence = true;
-                _client.OnReadXml += XMPPRead;
-                _client.OnWriteXml += XMPPWrite;
+                _client.OnReadXml += XmppRead;
+                _client.OnWriteXml += XmppWrite;
             }
             catch (Exception e)
             {
@@ -109,84 +110,90 @@ namespace NefitSharp
             }
         }
 
-        private void XMPPRead(object sender, string xml)
+        private void XmppRead(object sender, string xml)
         {
-#if DEBUG
-            Console.WriteLine("<< " + xml);
-#endif
-            if (xml.StartsWith("<message"))
+            if (!xml.StartsWith("<stream"))
             {
-                string[] response = xml.Split('\n');
-                string payload = response[response.Length - 1];
-                payload = payload.Remove(payload.Length - 17, 17);
-                if (string.IsNullOrEmpty(payload))
+                try
                 {
-                    if (response[0].Contains("HTTP/1.0 204 No Content"))
+                    XmlDocument xmlDoc = new XmlDocument();
+                    xmlDoc.LoadXml(xml);
+                    if (xmlDoc.DocumentElement.Name == "message")
+                    {                        
+                        NefitHTTPResponse header = new NefitHTTPResponse(xmlDoc.InnerText);                        
+                        lock (_lockObj)
+                        {
+                            _lastMessage = header;
+                        }
+                    }
+                    else if (xmlDoc.DocumentElement.Name == "failure" && xmlDoc.FirstChild.FirstChild.Name == "not-authorized")
                     {
-                        payload = "OK";
+                        _authenticationError = true;
+                        Disconnect();
                     }
                 }
-                lock (_lockObj)
+                catch
                 {
-                    _lastMessage = _encryptionHelper.Decrypt(payload);
+                    Debug.Write("XML Parsing error");
+                    Disconnect();
                 }
             }
-            else if (xml.StartsWith("<failure") && xml.Contains("<not-authorized />"))
-            {
-                _authenticationError = true;
-                Disconnect();
-            }             
         }
         
-        private void XMPPWrite(object sender, string xml)
+        private void XmppWrite(object sender, string xml)
         {
-#if DEBUG
-            Console.WriteLine(">> " + xml);
-#endif
-            if (xml.StartsWith("<presence>"))
+            if (!xml.StartsWith("<stream"))
             {
-                _readyForCommands = true;
+                try
+                {
+                    XmlDocument xmlDoc = new XmlDocument();
+                    xmlDoc.LoadXml(xml);
+                    if (xmlDoc.DocumentElement.Name == "presence")
+                    {
+                        _readyForCommands = true;
+                    }
+                }
+                catch
+                {
+                    Debug.Write("XML Parsing error");
+                    Disconnect();
+                }
             }
-
         }
+
 
         private bool PutSync(string url, string data)
         {
-            string encryptedData = _encryptionHelper.Encrypt(data);
-            _client.Send("<message from=\"" + _client.MyJID + "\" to=\"" + cRrcGatewayPrefix + _serial + "@" + cHost + "\"><body>PUT " + url + " HTTP/1.1&#13;\nContent-Type: application/json&#13;\nContent-Length:" + encryptedData.Length + "&#13;\nUser-Agent: NefitEasy&#13;\n&#13;\n" + encryptedData + "</body></message>");
+            NefitHTTPRequest request = new NefitHTTPRequest(url, _client.MyJID, cRrcGatewayPrefix + _serial + "@" + cHost, _encryptionHelper.Encrypt(data));
+            _client.Send(request.ToString());
             int timeout = cRequestTimeout;
             while (timeout > 0)
             {
                 lock (_lockObj)
                 {
-                    if (!string.IsNullOrEmpty(_lastMessage))
+                    if (_lastMessage!=null)
                     {
-                        if (_lastMessage == "OK")
-                        {
-                            return true;
-                        }
-                        return false;
+                        return _lastMessage.Code == 204 || _lastMessage.Code == 200;
                     }
                 }
                 timeout -= cCheckInterval;
                 Thread.Sleep(cCheckInterval);
             }
             return false;
-
         }
 
         private T GetSync<T>(string url)
         {
-            _client.Send("<message from=\"" + _client.MyJID + "\" to=\"" + cRrcGatewayPrefix + _serial + "@" + cHost + "\"><body>GET " + url + " HTTP/1.1&#13;\nUser-Agent: NefitEasy&#13;\n&#13;\n</body></message>");
+            NefitHTTPRequest request = new NefitHTTPRequest(url, _client.MyJID, cRrcGatewayPrefix + _serial + "@" + cHost);
+            _client.Send(request.ToString());         
             int timeout = cRequestTimeout;
             while (timeout > 0)
             {
                 lock (_lockObj)
                 {
-                    if (!string.IsNullOrEmpty(_lastMessage))
-                    {
-
-                        NefitJson<T> obj = JsonConvert.DeserializeObject<NefitJson<T>>(_lastMessage);
+                    if (_lastMessage!=null)
+                    {                        
+                        NefitJson<T> obj = JsonConvert.DeserializeObject<NefitJson<T>>(_encryptionHelper.Decrypt(_lastMessage.Payload));
                         _lastMessage = null;
                         if (obj != null)
                         {
@@ -201,38 +208,6 @@ namespace NefitSharp
             }
             return default(T);
         }
-
-        public void TestCommand(string url)
-        {
-            _client.Send("<message from=\"" + _client.MyJID + "\" to=\"" + cRrcGatewayPrefix + _serial + "@" + cHost + "\"><body>GET " + url + " HTTP/1.1&#13;\nUser-Agent: NefitEasy&#13;\n&#13;\n</body></message>");
-
-            int timeout = cRequestTimeout;
-            timeout = 2000;
-            bool str = false;
-            while (timeout > 0)
-            {
-                lock (_lockObj)
-                {
-                    if (!string.IsNullOrEmpty(_lastMessage))
-                    {
-                        string result = _lastMessage;
-                        _lastMessage = null;
-                        str = true;
-                        Debug.WriteLine(url + " - "+result);
-                        timeout = 0;
-                    }
-                }
-                timeout -= cCheckInterval;
-                Thread.Sleep(cCheckInterval);
-            }
-            if (!str)
-            {
-                Debug.WriteLine(url + " - " + "No result");
-            }
-        }
-
- 
-
         #endregion
 
         #region Commands
@@ -335,12 +310,12 @@ namespace NefitSharp
                 string easyUpdate = GetSync<string>("/gateway/update/strategy");
                 string easyFirmware = GetSync<string>("/gateway/versionFirmware");
                 string easyHardware = GetSync<string>("/gateway/versionHardware");
-                string easyUUID = GetSync<string>("/gateway/uuid");
+                string easyUuid = GetSync<string>("/gateway/uuid");
                 string cvSerial = GetCVSerialNumber();
                 string cvVersion = GetSync<string>("/system/appliance/version");
                 string cvBurner = GetSync<string>("/system/interfaces/ems/brandbit");
                 result = new Information(ownerInfo[0], ownerInfo[1], ownerInfo[2], installerInfo[0], installerInfo[1],installerInfo[2],
-                 easySerial,easyUpdate,easyFirmware,easyHardware,easyUUID,cvSerial,cvVersion,cvBurner);
+                 easySerial,easyUpdate,easyFirmware,easyHardware,easyUuid,cvSerial,cvVersion,cvBurner);
             });
             return result;
         }

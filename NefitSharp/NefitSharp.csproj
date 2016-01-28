@@ -45,8 +45,13 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Entities\GasSample.cs" />
+    <Compile Include="Entities\Information.cs" />
+    <Compile Include="Entities\Internal\NefitGasSample.cs" />
     <Compile Include="Entities\Location.cs" />
     <Compile Include="Entities\Internal\NefitJson.cs" />
     <Compile Include="Entities\Internal\NefitProgram.cs" />
@@ -57,6 +62,7 @@
     <Compile Include="Entities\StatusCode.cs" />
     <Compile Include="NefitClient.cs" />
     <Compile Include="NefitEncryption.cs" />
+    <Compile Include="NefitHTTPResponse.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

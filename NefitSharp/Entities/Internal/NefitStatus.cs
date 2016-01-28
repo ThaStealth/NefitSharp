@@ -1,7 +1,8 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace NefitSharp.Entities.Internal
 {
-    
-
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
     class NefitStatus
     {
         public string CTD { get; set; }

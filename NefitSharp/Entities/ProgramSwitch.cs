@@ -16,7 +16,6 @@ namespace NefitSharp.Entities
             switch (day)
             {
                 default:
-                case "Su":
                     dwi = DayOfWeek.Sunday;
                     break;
                 case "Mo":
