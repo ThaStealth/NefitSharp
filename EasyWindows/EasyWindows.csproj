@@ -123,8 +123,21 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="nefit-logo.ico" />
-    <None Include="Resources\nefit-logo.png" />
+    <None Include="Resources\timerProgramFireplaceActive.png" />
+    <None Include="Resources\timerProgramSundayInactive.png" />
+    <None Include="Resources\timerProgramSundayActive.png" />
+    <None Include="Resources\timerProgramNotHomeInactive.png" />
+    <None Include="Resources\timerProgramNotHomeActive.png" />
+    <None Include="Resources\timerProgramHomeInactive.png" />
+    <None Include="Resources\timerProgramHomeActive.png" />
+    <None Include="Resources\timerProgramHolidayInactive.png" />
+    <None Include="Resources\timerProgramHolidayActive.png" />
+    <None Include="Resources\timerProgramFireplaceInactive.png" />
+    <None Include="Resources\programOff.png" />
     <None Include="Resources\nefitbackground.png" />
+    <None Include="Resources\nefit.png" />
+    <None Include="Resources\whiteSegment.png" />
+    <None Include="Resources\nefit-logo.png" />
     <None Include="Resources\tempUp.png" />
     <None Include="Resources\tempDown.png" />
     <None Include="Resources\celcius.png" />

@@ -143,6 +143,26 @@ namespace DigitalThermostat.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap nefitbackground {
+            get {
+                object obj = ResourceManager.GetObject("nefitbackground", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap programOff {
+            get {
+                object obj = ResourceManager.GetObject("programOff", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap tempDown {
             get {
                 object obj = ResourceManager.GetObject("tempDown", resourceCulture);
@@ -173,6 +193,66 @@ namespace DigitalThermostat.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap timerProgramFireplaceActive {
+            get {
+                object obj = ResourceManager.GetObject("timerProgramFireplaceActive", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap timerProgramFireplaceInactive {
+            get {
+                object obj = ResourceManager.GetObject("timerProgramFireplaceInactive", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap timerProgramHolidayActive {
+            get {
+                object obj = ResourceManager.GetObject("timerProgramHolidayActive", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap timerProgramHolidayInactive {
+            get {
+                object obj = ResourceManager.GetObject("timerProgramHolidayInactive", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap timerProgramHomeActive {
+            get {
+                object obj = ResourceManager.GetObject("timerProgramHomeActive", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap timerProgramHomeInactive {
+            get {
+                object obj = ResourceManager.GetObject("timerProgramHomeInactive", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap timerProgramInactive {
             get {
                 object obj = ResourceManager.GetObject("timerProgramInactive", resourceCulture);
@@ -196,6 +276,56 @@ namespace DigitalThermostat.Properties {
         internal static System.Drawing.Bitmap timerProgramLearningInactive {
             get {
                 object obj = ResourceManager.GetObject("timerProgramLearningInactive", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap timerProgramNotHomeActive {
+            get {
+                object obj = ResourceManager.GetObject("timerProgramNotHomeActive", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap timerProgramNotHomeInactive {
+            get {
+                object obj = ResourceManager.GetObject("timerProgramNotHomeInactive", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap timerProgramSundayActive {
+            get {
+                object obj = ResourceManager.GetObject("timerProgramSundayActive", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap timerProgramSundayInactive {
+            get {
+                object obj = ResourceManager.GetObject("timerProgramSundayInactive", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap whiteSegment {
+            get {
+                object obj = ResourceManager.GetObject("whiteSegment", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

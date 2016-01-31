@@ -16,6 +16,7 @@ namespace NefitSharp.Entities
         public bool TempOverride { get; }
         public bool HolidayMode { get; }
         public bool BoilerBlock { get; }
+        public bool DayAsSunday { get; }
         public bool BoilerLock { get; }
         public bool BoilerMaintenance { get; }
         public double TemperatureSetpoint { get; }
@@ -96,14 +97,15 @@ namespace NefitSharp.Entities
             FireplaceMode = stat.FPA == "on";
             TempOverride = stat.TOR == "on";
             HolidayMode = stat.HMD == "on";
-            BoilerBlock = stat.BBE == "on";
+            BoilerBlock = stat.BBE == "true";
+            DayAsSunday = stat.DAS == "on";
             BoilerLock = stat.BLE == "on";
-            BoilerMaintenance = stat.BMR == "on";
+            BoilerMaintenance = stat.BMR == "true";
             TemperatureSetpoint = Utils.StringToDouble(stat.TSP);
             TemperatureOverrideSetpoint = Utils.StringToDouble(stat.TOT);
             TemparatureManualSetpoint = Utils.StringToDouble(stat.MMT);
-            HedEnabled = stat.HED_EN == "on";
-            HedDeviceAtHome = stat.HED_DEV == "on";         
+            HedEnabled = stat.HED_EN == "true";
+            HedDeviceAtHome = stat.HED_DEV == "true";         
         }
     }
 }

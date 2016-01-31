@@ -124,11 +124,17 @@
   <data name="timerProgramLearningInactive" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\timerProgramLearningInactive.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="tempUp" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\tempUp.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="whiteSegment" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\whiteSegment.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="flame" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\flame.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="nefit" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\nefitbackground.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+    <value>..\Resources\nefit.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="tempDown" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\tempDown.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -142,9 +148,6 @@
   <data name="leaf" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\leaf.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="tempUp" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\tempUp.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
   <data name="manualProgramActive" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\manualProgram.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -154,10 +157,46 @@
   <data name="timerProgramInactive" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\timerProgramInactive.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="nefit-logo" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\nefit-logo.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="celcius" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\celcius.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="nefit-logo" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\nefit-logo.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="nefitbackground" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\nefitbackground.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="programOff" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\programOff.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="timerProgramFireplaceActive" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\timerProgramFireplaceActive.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="timerProgramFireplaceInactive" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\timerProgramFireplaceInactive.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="timerProgramHolidayActive" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\timerProgramHolidayActive.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="timerProgramHolidayInactive" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\timerProgramHolidayInactive.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="timerProgramHomeActive" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\timerProgramHomeActive.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="timerProgramHomeInactive" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\timerProgramHomeInactive.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="timerProgramNotHomeActive" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\timerProgramNotHomeActive.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="timerProgramNotHomeInactive" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\timerProgramNotHomeInactive.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="timerProgramSundayActive" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\timerProgramSundayActive.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="timerProgramSundayInactive" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\timerProgramSundayInactive.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
 </root>

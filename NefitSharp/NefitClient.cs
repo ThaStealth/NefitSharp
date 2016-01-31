@@ -345,7 +345,11 @@ namespace NefitSharp
             string sensitivity = Get<string>("/ecus/rrc/pirSensitivity");
             string tempStep = Get<string>("/ecus/rrc/temperaturestep");
             double adjustment = Get<double>("/heatingCircuits/hc1/temperatureAdjustment");
-            return new SystemSettings(desinfect, Utils.GetNextDate(nextTermalDay, nextTermalTime), sensitivity, Utils.StringToDouble(tempStep), adjustment);
+            if (sensitivity != null && nextTermalDay!=null)
+            {
+                return new SystemSettings(desinfect, Utils.GetNextDate(nextTermalDay, nextTermalTime), sensitivity, Utils.StringToDouble(tempStep), adjustment);
+            }
+            return null;
         }
 
         public bool SetUserMode(UserModes newMode)
