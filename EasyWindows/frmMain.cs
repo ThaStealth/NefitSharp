@@ -11,6 +11,8 @@ namespace DigitalThermostat
     {
         private NefitClient _client;
         private UIStatus _currentStatus;
+        private SystemSettings? _settings;
+
         private RectangleF _manualProgramClickZone;
         private RectangleF _autoProgramClickZone;
         private RectangleF _temperatureUpClickZone;
@@ -142,13 +144,27 @@ namespace DigitalThermostat
                 if (_temperatureUpClickZone.Contains(corrPos))
                 {
                     double newSetpoint = _currentStatus.TemperatureSetpoint;
-                    newSetpoint += 0.5;
+                    if (_settings.HasValue)
+                    {
+                        newSetpoint += _settings.Value.EasyTemperatureStep;
+                    }
+                    else
+                    {
+                        newSetpoint += 0.5;
+                    }
                     _client.SetTemperature(newSetpoint);
                 }
                 else if (_temperatureDownClickZone.Contains(corrPos))
                 {
                     double newSetpoint = _currentStatus.TemperatureSetpoint;
-                    newSetpoint -= 0.5;
+                    if (_settings.HasValue)
+                    {
+                        newSetpoint -= _settings.Value.EasyTemperatureStep;
+                    }
+                    else
+                    {
+                        newSetpoint -= 0.5;
+                    }
                     _client.SetTemperature(newSetpoint);
                 }
 
@@ -171,6 +187,11 @@ namespace DigitalThermostat
         {
             if (_client.Connected)
             {
+                if (_settings == null)
+                {
+                    _settings = await _client.GetSystemSettingsAsync();
+                }
+
                 UIStatus stat = await _client.GetUIStatusAsync();
                 if (stat != null)
                 {

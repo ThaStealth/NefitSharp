@@ -68,7 +68,7 @@
     <Compile Include="Entities\UserModes.cs" />
     <Compile Include="Entities\UserProgram.cs" />
     <Compile Include="Entities\ProgramSwitch.cs" />
-    <Compile Include="Entities\Status.cs" />
+    <Compile Include="Entities\FullStatus.cs" />
     <Compile Include="Entities\StatusCode.cs" />
     <Compile Include="NefitClient.cs" />
     <Compile Include="NefitEncryption.cs" />

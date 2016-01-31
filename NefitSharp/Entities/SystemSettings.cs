@@ -6,7 +6,7 @@ namespace NefitSharp.Entities
     {
         public bool ThermalDesinfectEnabled { get; }
         public DateTime NextThermalDesinfect { get; }
-        public string EasyAutoOnSensitivity { get; }
+        public EasySensitivity EasyAutoOnSensitivity { get; }
         public double EasyTemperatureStep { get; }
         public double EasyTemperatureAdjustment { get; }
 
@@ -14,7 +14,18 @@ namespace NefitSharp.Entities
         {
             ThermalDesinfectEnabled = thermalDesinfectEnabled;
             NextThermalDesinfect = nextThermalDesinfect;
-            EasyAutoOnSensitivity = easyAutoOnSensitivity;
+            switch (easyAutoOnSensitivity.ToLower())
+            {
+                case "high":
+                    EasyAutoOnSensitivity = EasySensitivity.High;
+                    break;
+                case "low":
+                    EasyAutoOnSensitivity = EasySensitivity.Low;
+                    break;
+                default:
+                    EasyAutoOnSensitivity = EasySensitivity.Unknown;
+                    break;
+            }            
             EasyTemperatureStep = easyTemperatureStep;
             EasyTemperatureAdjustment = easyTemperatureAdjustment;
         }

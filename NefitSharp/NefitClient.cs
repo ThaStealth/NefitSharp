@@ -31,7 +31,7 @@ namespace NefitSharp
         private bool _authenticationError;
         private bool _readyForCommands;
 
-        private const int cRequestTimeout = 5 * 1000;
+        private const int cRequestTimeout = 5*1000;
         private const int cCheckInterval = 100;
         private const int cKeepAliveInterval = 30*1000;
 
@@ -46,14 +46,14 @@ namespace NefitSharp
                 return _client.XmppConnectionState == XmppConnectionState.SessionStarted && _readyForCommands;
             }
         }
-        
+
         public NefitClient(string serial, string accesskey, string password)
         {
             _lockObj = new object();
-            _communicationLock= new object();
+            _communicationLock = new object();
             _lastMessage = null;
             _serial = serial;
-            
+
             _accessKey = accesskey;
             _encryptionHelper = new NefitEncryption(serial, accesskey, password);
         }
@@ -92,7 +92,7 @@ namespace NefitSharp
             return Connected;
         }
 
-  
+
 
 
         public void Disconnect()
@@ -115,7 +115,7 @@ namespace NefitSharp
 
         private void XmppRead(object sender, string xml)
         {
-            Debug.WriteLine(DateTime.Now.ToString("HH:mm:ss") +"<< "+xml);
+            Debug.WriteLine(DateTime.Now.ToString("HH:mm:ss") + "<< " + xml);
             if (!xml.StartsWith("<stream"))
             {
                 try
@@ -123,8 +123,8 @@ namespace NefitSharp
                     XmlDocument xmlDoc = new XmlDocument();
                     xmlDoc.LoadXml(xml);
                     if (xmlDoc.DocumentElement != null && xmlDoc.DocumentElement.Name == "message")
-                    {                        
-                        NefitHTTPResponse header = new NefitHTTPResponse(xmlDoc.InnerText);                        
+                    {
+                        NefitHTTPResponse header = new NefitHTTPResponse(xmlDoc.InnerText);
                         lock (_lockObj)
                         {
                             _lastMessage = header;
@@ -143,7 +143,7 @@ namespace NefitSharp
                 }
             }
         }
-        
+
         private void XmppWrite(object sender, string xml)
         {
             Debug.WriteLine(DateTime.Now.ToString("HH:mm:ss") + ">> " + xml);
@@ -220,6 +220,7 @@ namespace NefitSharp
                 return default(T);
             }
         }
+
         #endregion
 
         #region Commands
@@ -236,31 +237,36 @@ namespace NefitSharp
             NefitProgram[] program0 = Get<NefitProgram[]>("/ecus/rrc/userprogram/program0");
             NefitProgram[] program1 = Get<NefitProgram[]>("/ecus/rrc/userprogram/program1");
             NefitProgram[] program2 = Get<NefitProgram[]>("/ecus/rrc/userprogram/program2");
-
-            return new UserProgram(program0, program1, program2, activeProgram, fireplaceFunction, preheating, switchpointName1, switchpointName2);
+            if (program0 != null && program1 != null && program2 != null)
+            {
+                return new UserProgram(program0, program1, program2, activeProgram, fireplaceFunction, preheating, switchpointName1, switchpointName2);
+            }
+            return null;
         }
 
-        public Status GetStatus()
+        public FullStatus GetStatus()
         {
             NefitStatus status = Get<NefitStatus>("/ecus/rrc/uiStatus");
-            double outdoor = Get<double>("/system/sensors/temperatures/outdoor_t1");
-            string serviceStatus = Get<string>("/gateway/remote/servicestate");
-            bool ignition = Get<string>("/ecus/rrc/pm/ignition/status") == "true";
-            bool refillNeeded = Get<string>("/ecus/rrc/pm/refillneeded/status") == "true";
-            bool closingValve = Get<string>("/ecus/rrc/pm/closingvalve/status") == "true";
-            bool shortTapping = Get<string>("/ecus/rrc/pm/shorttapping/status") == "true";
-            bool systemLeaking = Get<string>("/ecus/rrc/pm/systemleaking/status") == "true";
-            double systemPressure = Get<double>("/system/appliance/systemPressure");
-            double chSupplyTemperature = Get<double>("/heatingCircuits/hc1/actualSupplyTemperature");
-            string operationMode = Get<string>("/heatingCircuits/hc1/operationMode");
-            string displayCode = Get<string>("/system/appliance/displaycode");
-            string causeCode = Get<string>("/system/appliance/causecode");
-            StatusCode? code = null;
-            if (!string.IsNullOrEmpty(displayCode) && !string.IsNullOrEmpty(causeCode))
+            if (status != null)
             {
-                code = new StatusCode(displayCode, Convert.ToInt32(causeCode));
+                double outdoor = Get<double>("/system/sensors/temperatures/outdoor_t1");
+                string serviceStatus = Get<string>("/gateway/remote/servicestate");
+                bool ignition = Get<string>("/ecus/rrc/pm/ignition/status") == "true";
+                bool refillNeeded = Get<string>("/ecus/rrc/pm/refillneeded/status") == "true";
+                bool closingValve = Get<string>("/ecus/rrc/pm/closingvalve/status") == "true";
+                bool shortTapping = Get<string>("/ecus/rrc/pm/shorttapping/status") == "true";
+                bool systemLeaking = Get<string>("/ecus/rrc/pm/systemleaking/status") == "true";
+                double systemPressure = Get<double>("/system/appliance/systemPressure");
+                double chSupplyTemperature = Get<double>("/heatingCircuits/hc1/actualSupplyTemperature");
+                string operationMode = Get<string>("/heatingCircuits/hc1/operationMode");
+                string displayCode = Get<string>("/system/appliance/displaycode");
+                string causeCode = Get<string>("/system/appliance/causecode");
+                if (!string.IsNullOrEmpty(displayCode) && !string.IsNullOrEmpty(causeCode))
+                {
+                    return new FullStatus(status, serviceStatus, outdoor, operationMode, refillNeeded, ignition, closingValve, shortTapping, systemLeaking, systemPressure, chSupplyTemperature, new StatusCode(displayCode, Convert.ToInt32(causeCode)));
+                }
             }
-            return new Status(status, serviceStatus, outdoor, operationMode, refillNeeded, ignition, closingValve, shortTapping, systemLeaking, systemPressure, chSupplyTemperature, code);
+            return null;
         }
 
         public Location? GetLocation()
@@ -278,19 +284,26 @@ namespace NefitSharp
             while (hasValidSamples)
             {
                 NefitGasSample[] samples = Get<NefitGasSample[]>("/ecus/rrc/recordings/gasusage?page=" + currentPage);
-                foreach (NefitGasSample sample in samples)
+                if (samples != null && samples.Length > 0)
                 {
-                    if (sample.d != "255-256-65535")
+                    foreach (NefitGasSample sample in samples)
                     {
-                        gasSamples.Add(new GasSample(Convert.ToDateTime(sample.d), sample.hw / 10.0, sample.ch / 10.0));
+                        if (sample.d != "255-256-65535")
+                        {
+                            gasSamples.Add(new GasSample(Convert.ToDateTime(sample.d), sample.hw/10.0, sample.ch/10.0));
+                        }
+                        else
+                        {
+                            hasValidSamples = false;
+                            break;
+                        }
                     }
-                    else
-                    {
-                        hasValidSamples = false;
-                        break;
-                    }
+                    currentPage++;
                 }
-                currentPage++;
+                else
+                {
+                    hasValidSamples = false;
+                }
             }
             return gasSamples.ToArray();
         }
@@ -300,11 +313,10 @@ namespace NefitSharp
             NefitStatus status = Get<NefitStatus>("/ecus/rrc/uiStatus");
             if (status != null)
             {
-                return new UIStatus(status);                
+                return new UIStatus(status);
             }
             return null;
         }
-
 
         public Information? GetInformation()
         {
@@ -321,7 +333,19 @@ namespace NefitSharp
             string cvVersion = Get<string>("/system/appliance/version");
             string cvBurner = Get<string>("/system/interfaces/ems/brandbit");
             return new Information(ownerInfo[0], ownerInfo[1], ownerInfo[2], installerInfo[0], installerInfo[1], installerInfo[2],
-             easySerial, easyUpdate, easyFirmware, easyHardware, easyUuid, cvSerial, cvVersion, cvBurner);
+                easySerial, easyUpdate, easyFirmware, easyHardware, easyUuid, cvSerial, cvVersion, cvBurner);
+        }
+
+        public SystemSettings? GetSystemSettings()
+        {
+            bool desinfect = Get<string>("/dhwCircuits/dhwA/thermaldesinfect/state") == "on";
+
+            int nextTermalTime = Get<int>("/dhwCircuits/dhwA/thermaldesinfect/time");
+            string nextTermalDay = Get<string>("/dhwCircuits/dhwA/thermaldesinfect/weekday");
+            string sensitivity = Get<string>("/ecus/rrc/pirSensitivity");
+            string tempStep = Get<string>("/ecus/rrc/temperaturestep");
+            double adjustment = Get<double>("/heatingCircuits/hc1/temperatureAdjustment");
+            return new SystemSettings(desinfect, Utils.GetNextDate(nextTermalDay, nextTermalTime), sensitivity, Utils.StringToDouble(tempStep), adjustment);
         }
 
         public bool SetUserMode(UserModes newMode)
@@ -344,9 +368,9 @@ namespace NefitSharp
         }
 
         #endregion
-
-
+        
 #if !NET20 && !NET35
+
         #region Async commands
 
         public async Task ConnectAsync()
@@ -357,7 +381,6 @@ namespace NefitSharp
             });
         }
 
-
         public async Task<UserProgram> GetProgramAsync()
         {
             return await Task.Run(() =>
@@ -366,10 +389,9 @@ namespace NefitSharp
             });
         }
 
-
         public async Task<Information?> GetInformationAsync()
         {
-          return  await Task.Run(() =>
+            return await Task.Run(() =>
             {
                 return GetInformation();
             });
@@ -383,12 +405,19 @@ namespace NefitSharp
             });
         }
 
-
-        public async Task<Status> GetStatusAsync()
+        public async Task<FullStatus> GetFullStatusAsync()
         {
             return await Task.Run(() =>
             {
                 return GetStatus();
+            });
+        }
+
+        public async Task<SystemSettings?> GetSystemSettingsAsync()
+        {
+            return await Task.Run(() =>
+            {
+                return GetSystemSettings();
             });
         }
 
@@ -397,7 +426,7 @@ namespace NefitSharp
             return await Task.Run(() =>
             {
                 return GetLocation();
-            });            
+            });
         }
 
         public async Task<GasSample[]> GetGasusageAsync()
@@ -405,17 +434,15 @@ namespace NefitSharp
             return await Task.Run(() =>
             {
                 return GetGasusage();
-            });            
+            });
         }
-
-
 
         public async Task<bool> SetTemperatureAsync(double temperature)
         {
             return await Task.Run(() =>
-             {
-                 return SetTemperature(temperature);
-             });      
+            {
+                return SetTemperature(temperature);
+            });
         }
 
         public async Task<bool> SetUserModeAsync(UserModes newMode)
@@ -426,9 +453,10 @@ namespace NefitSharp
             });
         }
 
-
         #endregion
+
 #endif
+
         #endregion
     }
 }

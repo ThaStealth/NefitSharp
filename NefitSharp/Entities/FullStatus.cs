@@ -2,7 +2,7 @@
 
 namespace NefitSharp.Entities
 {
-    public class Status : UIStatus
+    public class FullStatus : UIStatus
     {
         public string LastThermalDesinfectResult { get; }
         public ServiceStatus ServiceStatus { get; }
@@ -17,7 +17,7 @@ namespace NefitSharp.Entities
         public double CentralHeatingSystemPressure { get; }
         public double CentralHeatingSystemSupplyTemperature { get; }
         public StatusCode? CurrentStatus { get; }
-        internal Status(NefitStatus stats,string serviceStatus,double outdoorTemp,string operationMode,bool refillNeeded,bool ignition,bool closingValve,bool shortTapping,bool systemLeaking,double centralHeatingSystemPressure, double centralHeatingSystemSupplyTemperature, StatusCode? code)
+        internal FullStatus(NefitStatus stats,string serviceStatus,double outdoorTemp,string operationMode,bool refillNeeded,bool ignition,bool closingValve,bool shortTapping,bool systemLeaking,double centralHeatingSystemPressure, double centralHeatingSystemSupplyTemperature, StatusCode? code)
             :base(stats)
         {
             CurrentStatus = code;
