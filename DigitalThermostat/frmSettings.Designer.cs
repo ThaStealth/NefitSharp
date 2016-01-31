@@ -41,6 +41,7 @@
             this.nudRefreshInterval = new System.Windows.Forms.NumericUpDown();
             this.label5 = new System.Windows.Forms.Label();
             this.label6 = new System.Windows.Forms.Label();
+            this.label4 = new System.Windows.Forms.Label();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.nudRefreshInterval)).BeginInit();
@@ -125,6 +126,7 @@
             // 
             // groupBox2
             // 
+            this.groupBox2.Controls.Add(this.label4);
             this.groupBox2.Controls.Add(this.cbxScale);
             this.groupBox2.Controls.Add(this.nudRefreshInterval);
             this.groupBox2.Controls.Add(this.label5);
@@ -152,6 +154,7 @@
             // 
             // nudRefreshInterval
             // 
+            this.nudRefreshInterval.DecimalPlaces = 1;
             this.nudRefreshInterval.Increment = new decimal(new int[] {
             5,
             0,
@@ -195,6 +198,15 @@
             this.label6.TabIndex = 5;
             this.label6.Text = "GUI Scale:";
             // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.Location = new System.Drawing.Point(161, 48);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(18, 13);
+            this.label4.TabIndex = 9;
+            this.label4.Text = "(s)";
+            // 
             // FrmSettings
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -235,5 +247,6 @@
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.ComboBox cbxScale;
         private System.Windows.Forms.NumericUpDown nudRefreshInterval;
+        private System.Windows.Forms.Label label4;
     }
 }
