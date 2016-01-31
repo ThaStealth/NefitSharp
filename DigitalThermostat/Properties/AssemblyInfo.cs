@@ -6,12 +6,9 @@ using System.Runtime.InteropServices;
 // associated with an assembly.
 [assembly: AssemblyTitle("Easy Thermostat for Windows")]
 [assembly: AssemblyDescription("Control your Easy thermostat from Windows!")]
-[assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("ThaStealth Software Inc.")]
 [assembly: AssemblyProduct("Easy Thermostat")]
 [assembly: AssemblyCopyright("Copyright © ThaStealth 2016")]
-[assembly: AssemblyTrademark("")]
-[assembly: AssemblyCulture("")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 
