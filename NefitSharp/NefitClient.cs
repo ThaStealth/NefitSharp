@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Net.Mime;
+using System.Reflection;
 using System.Threading;
 #if !NET20 && !NET35
 using System.Threading.Tasks;
@@ -31,9 +34,16 @@ namespace NefitSharp
         private bool _authenticationError;
         private bool _readyForCommands;
 
+        private bool _debugMode;
+
         private const int cRequestTimeout = 5*1000;
         private const int cCheckInterval = 100;
         private const int cKeepAliveInterval = 30*1000;
+
+        public bool AuthenticationError
+        {
+            get { return _authenticationError; }
+        }
 
         public bool Connected
         {
@@ -47,13 +57,13 @@ namespace NefitSharp
             }
         }
 
-        public NefitClient(string serial, string accesskey, string password)
+        public NefitClient(string serial, string accesskey, string password,bool debugMode =false)
         {
             _lockObj = new object();
             _communicationLock = new object();
             _lastMessage = null;
             _serial = serial;
-
+            _debugMode = debugMode;
             _accessKey = accesskey;
             _encryptionHelper = new NefitEncryption(serial, accesskey, password);
         }
@@ -115,7 +125,7 @@ namespace NefitSharp
 
         private void XmppRead(object sender, string xml)
         {
-            Debug.WriteLine(DateTime.Now.ToString("HH:mm:ss") + "<< " + xml);
+          //  Log("XML<< " + xml);
             if (!xml.StartsWith("<stream"))
             {
                 try
@@ -146,7 +156,8 @@ namespace NefitSharp
 
         private void XmppWrite(object sender, string xml)
         {
-            Debug.WriteLine(DateTime.Now.ToString("HH:mm:ss") + ">> " + xml);
+           // Log("XML>> " + xml);
+            
             if (!xml.StartsWith("<stream"))
             {
                 try
@@ -166,26 +177,54 @@ namespace NefitSharp
             }
         }
 
+        private void Log(string txt)
+        {
+            try
+            {
+#if !DEBUG
+                if (_debugMode)
+#endif
+                {
+                    Debug.WriteLine(DateTime.Now.ToString("HH:mm:ss") + txt);
+                    StreamWriter writer = new StreamWriter(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\log.txt", true);
+                    writer.WriteLine(DateTime.Now.ToString("HH:mm:ss") + txt);
+                    writer.Close();
+                }
+            }
+            catch
+            {
+                
+            }
+        }
+
         private bool Put(string url, string data)
         {
             lock (_communicationLock)
             {
-                NefitHTTPRequest request = new NefitHTTPRequest(url, _client.MyJID, cRrcGatewayPrefix + _serial + "@" + cHost, _encryptionHelper.Encrypt(data));
-                _client.Send(request.ToString());
-                int timeout = cRequestTimeout;
-                while (timeout > 0)
+                try
                 {
-                    lock (_lockObj)
+                    NefitHTTPRequest request = new NefitHTTPRequest(url, _client.MyJID, cRrcGatewayPrefix + _serial + "@" + cHost, _encryptionHelper.Encrypt(data));
+                    Log(">> " + request);
+                    _client.Send(request.ToString());
+                    int timeout = cRequestTimeout;
+                    while (timeout > 0)
                     {
-                        if (_lastMessage != null)
+                        lock (_lockObj)
                         {
-                            bool result = _lastMessage.Code == 204 || _lastMessage.Code == 200;
-                            _lastMessage = null;
-                            return result;
+                            if (_lastMessage != null)
+                            {
+                                bool result = _lastMessage.Code == 204 || _lastMessage.Code == 200;
+                                _lastMessage = null;
+                                return result;
+                            }
                         }
+                        timeout -= cCheckInterval;
+                        Thread.Sleep(cCheckInterval);
                     }
-                    timeout -= cCheckInterval;
-                    Thread.Sleep(cCheckInterval);
+                }
+                catch (Exception e)
+                {
+                    Log(e.Message + " - " + e.StackTrace);
                 }
                 return false;
             }
@@ -195,187 +234,272 @@ namespace NefitSharp
         {
             lock (_communicationLock)
             {
-                NefitHTTPRequest request = new NefitHTTPRequest(url, _client.MyJID, cRrcGatewayPrefix + _serial + "@" + cHost);
-                _client.Send(request.ToString());
-                int timeout = cRequestTimeout;
-                while (timeout > 0)
+                try
                 {
-                    lock (_lockObj)
+                    NefitHTTPRequest request = new NefitHTTPRequest(url, _client.MyJID, cRrcGatewayPrefix + _serial + "@" + cHost);
+                    Log(">> "+request);
+                    _client.Send(request.ToString());
+                    int timeout = cRequestTimeout;
+                    while (timeout > 0)
                     {
-                        if (_lastMessage != null)
+                        lock (_lockObj)
                         {
-                            NefitJson<T> obj = JsonConvert.DeserializeObject<NefitJson<T>>(_encryptionHelper.Decrypt(_lastMessage.Payload));
-                            _lastMessage = null;
-                            if (obj != null)
+                            if (_lastMessage != null)
                             {
-                                return obj.value;
+                                
+                                string decrypted = _encryptionHelper.Decrypt(_lastMessage.Payload);
+                                Log("<< " + decrypted);
+                                if (decrypted.StartsWith("{"))
+                                {
+                                    NefitJson<T> obj = JsonConvert.DeserializeObject<NefitJson<T>>(decrypted);
+                                    _lastMessage = null;
+                                    if (obj != null)
+                                    {
+                                        return obj.value;
+                                    }
+                                }
+                                else
+                                {
+                                    _authenticationError = true;
+                                }
+                                timeout = 0;
                             }
-
-                            timeout = 0;
                         }
+                        timeout -= cCheckInterval;
+                        Thread.Sleep(cCheckInterval);
                     }
-                    timeout -= cCheckInterval;
-                    Thread.Sleep(cCheckInterval);
+                }
+                catch(Exception e)
+                {
+                    Log(e.Message + " - " + e.StackTrace);
                 }
                 return default(T);
             }
         }
 
-        #endregion
+#endregion
 
-        #region Commands
+#region Commands
 
-        #region Sync Methods
+#region Sync Methods
 
         public UserProgram GetProgram()
         {
-            int activeProgram = Get<int>("/ecus/rrc/userprogram/activeprogram");
-            bool preheating = Get<string>("/ecus/rrc/userprogram/activeprogram") == "off";
-            bool fireplaceFunction = Get<string>("/ecus/rrc/userprogram/activeprogram") == "off";
-            string switchpointName1 = Get<string>("/ecus/rrc/userprogram/userswitchpointname1");
-            string switchpointName2 = Get<string>("/ecus/rrc/userprogram/userswitchpointname2");
-            NefitProgram[] program0 = Get<NefitProgram[]>("/ecus/rrc/userprogram/program0");
-            NefitProgram[] program1 = Get<NefitProgram[]>("/ecus/rrc/userprogram/program1");
-            NefitProgram[] program2 = Get<NefitProgram[]>("/ecus/rrc/userprogram/program2");
-            if (program0 != null && program1 != null && program2 != null)
+            try
             {
-                return new UserProgram(program0, program1, program2, activeProgram, fireplaceFunction, preheating, switchpointName1, switchpointName2);
+                int activeProgram = Get<int>("/ecus/rrc/userprogram/activeprogram");
+                bool preheating = Get<string>("/ecus/rrc/userprogram/activeprogram") == "off";
+                bool fireplaceFunction = Get<string>("/ecus/rrc/userprogram/activeprogram") == "off";
+                string switchpointName1 = Get<string>("/ecus/rrc/userprogram/userswitchpointname1");
+                string switchpointName2 = Get<string>("/ecus/rrc/userprogram/userswitchpointname2");
+                NefitProgram[] program0 = Get<NefitProgram[]>("/ecus/rrc/userprogram/program0");
+                NefitProgram[] program1 = Get<NefitProgram[]>("/ecus/rrc/userprogram/program1");
+                NefitProgram[] program2 = Get<NefitProgram[]>("/ecus/rrc/userprogram/program2");
+                if (program0 != null && program1 != null && program2 != null)
+                {
+                    return new UserProgram(program0, program1, program2, activeProgram, fireplaceFunction, preheating, switchpointName1, switchpointName2);
+                }
+            }
+            catch (Exception e)
+            {
+                Log(e.Message + " - " + e.StackTrace);
             }
             return null;
         }
 
         public FullStatus GetStatus()
         {
-            NefitStatus status = Get<NefitStatus>("/ecus/rrc/uiStatus");
-            if (status != null)
+            try
             {
-                double outdoor = Get<double>("/system/sensors/temperatures/outdoor_t1");
-                string serviceStatus = Get<string>("/gateway/remote/servicestate");
-                bool ignition = Get<string>("/ecus/rrc/pm/ignition/status") == "true";
-                bool refillNeeded = Get<string>("/ecus/rrc/pm/refillneeded/status") == "true";
-                bool closingValve = Get<string>("/ecus/rrc/pm/closingvalve/status") == "true";
-                bool shortTapping = Get<string>("/ecus/rrc/pm/shorttapping/status") == "true";
-                bool systemLeaking = Get<string>("/ecus/rrc/pm/systemleaking/status") == "true";
-                double systemPressure = Get<double>("/system/appliance/systemPressure");
-                double chSupplyTemperature = Get<double>("/heatingCircuits/hc1/actualSupplyTemperature");
-                string operationMode = Get<string>("/heatingCircuits/hc1/operationMode");
-                string displayCode = Get<string>("/system/appliance/displaycode");
-                string causeCode = Get<string>("/system/appliance/causecode");
-                if (!string.IsNullOrEmpty(displayCode) && !string.IsNullOrEmpty(causeCode))
+                NefitStatus status = Get<NefitStatus>("/ecus/rrc/uiStatus");
+                if (status != null)
                 {
-                    return new FullStatus(status, serviceStatus, outdoor, operationMode, refillNeeded, ignition, closingValve, shortTapping, systemLeaking, systemPressure, chSupplyTemperature, new StatusCode(displayCode, Convert.ToInt32(causeCode)));
+                    double outdoor = Get<double>("/system/sensors/temperatures/outdoor_t1");
+                    string serviceStatus = Get<string>("/gateway/remote/servicestate");
+                    bool ignition = Get<string>("/ecus/rrc/pm/ignition/status") == "true";
+                    bool refillNeeded = Get<string>("/ecus/rrc/pm/refillneeded/status") == "true";
+                    bool closingValve = Get<string>("/ecus/rrc/pm/closingvalve/status") == "true";
+                    bool shortTapping = Get<string>("/ecus/rrc/pm/shorttapping/status") == "true";
+                    bool systemLeaking = Get<string>("/ecus/rrc/pm/systemleaking/status") == "true";
+                    double systemPressure = Get<double>("/system/appliance/systemPressure");
+                    double chSupplyTemperature = Get<double>("/heatingCircuits/hc1/actualSupplyTemperature");
+                    string operationMode = Get<string>("/heatingCircuits/hc1/operationMode");
+                    string displayCode = Get<string>("/system/appliance/displaycode");
+                    string causeCode = Get<string>("/system/appliance/causecode");
+                    if (!string.IsNullOrEmpty(displayCode) && !string.IsNullOrEmpty(causeCode))
+                    {
+                        return new FullStatus(status, serviceStatus, outdoor, operationMode, refillNeeded, ignition, closingValve, shortTapping, systemLeaking, systemPressure, chSupplyTemperature, new StatusCode(displayCode, Convert.ToInt32(causeCode)));
+                    }
                 }
+            }
+            catch (Exception e)
+            {
+                Log(e.Message + " - " + e.StackTrace);
             }
             return null;
         }
 
         public Location? GetLocation()
         {
-            string lat = Get<string>("/system/location/latitude");
-            string lon = Get<string>("/system/location/longitude");
-            return new Location(Utils.StringToDouble(lat), Utils.StringToDouble(lon));
+            try
+            {
+                string lat = Get<string>("/system/location/latitude");
+                string lon = Get<string>("/system/location/longitude");
+                return new Location(Utils.StringToDouble(lat), Utils.StringToDouble(lon));
+            }
+            catch (Exception e)
+            {
+                Log(e.Message + " - " + e.StackTrace);
+            }
+            return null;
         }
 
         public GasSample[] GetGasusage()
-        {
+        {            
             bool hasValidSamples = true;
             int currentPage = 1;
             List<GasSample> gasSamples = new List<GasSample>();
-            while (hasValidSamples)
+            try
             {
-                NefitGasSample[] samples = Get<NefitGasSample[]>("/ecus/rrc/recordings/gasusage?page=" + currentPage);
-                if (samples != null && samples.Length > 0)
+                while (hasValidSamples)
                 {
-                    foreach (NefitGasSample sample in samples)
+                    NefitGasSample[] samples = Get<NefitGasSample[]>("/ecus/rrc/recordings/gasusage?page=" + currentPage);
+                    if (samples != null && samples.Length > 0)
                     {
-                        if (sample.d != "255-256-65535")
+                        foreach (NefitGasSample sample in samples)
                         {
-                            gasSamples.Add(new GasSample(Convert.ToDateTime(sample.d), sample.hw/10.0, sample.ch/10.0));
+                            if (sample.d != "255-256-65535")
+                            {
+                                gasSamples.Add(new GasSample(Convert.ToDateTime(sample.d), sample.hw / 10.0, sample.ch / 10.0));
+                            }
+                            else
+                            {
+                                hasValidSamples = false;
+                                break;
+                            }
                         }
-                        else
-                        {
-                            hasValidSamples = false;
-                            break;
-                        }
+                        currentPage++;
                     }
-                    currentPage++;
+                    else
+                    {
+                        hasValidSamples = false;
+                    }
                 }
-                else
-                {
-                    hasValidSamples = false;
-                }
+            }
+            catch (Exception e)
+            {
+                Log(e.Message + " - " + e.StackTrace);
             }
             return gasSamples.ToArray();
         }
 
         public UIStatus GetUIStatus()
         {
-            NefitStatus status = Get<NefitStatus>("/ecus/rrc/uiStatus");
-            if (status != null)
+            try
             {
-                return new UIStatus(status);
+                NefitStatus status = Get<NefitStatus>("/ecus/rrc/uiStatus");
+                if (status != null)
+                {
+                    return new UIStatus(status);
+                }
+            }
+            catch (Exception e)
+            {
+                Log(e.Message + " - " + e.StackTrace);
             }
             return null;
         }
 
         public Information? GetInformation()
         {
-            string owner = Get<string>("/ecus/rrc/personaldetails");
-            string[] ownerInfo = owner.Split(';');
-            string installer = Get<string>("/ecus/rrc/installerdetails");
-            string[] installerInfo = installer.Split(';');
-            string easySerial = Get<string>("/gateway/serialnumber");
-            string easyUpdate = Get<string>("/gateway/update/strategy");
-            string easyFirmware = Get<string>("/gateway/versionFirmware");
-            string easyHardware = Get<string>("/gateway/versionHardware");
-            string easyUuid = Get<string>("/gateway/uuid");
-            string cvSerial = Get<string>("/system/appliance/serialnumber");
-            string cvVersion = Get<string>("/system/appliance/version");
-            string cvBurner = Get<string>("/system/interfaces/ems/brandbit");
-            return new Information(ownerInfo[0], ownerInfo[1], ownerInfo[2], installerInfo[0], installerInfo[1], installerInfo[2],
-                easySerial, easyUpdate, easyFirmware, easyHardware, easyUuid, cvSerial, cvVersion, cvBurner);
+            try
+            {
+
+                string owner = Get<string>("/ecus/rrc/personaldetails");
+                string[] ownerInfo = owner.Split(';');
+                string installer = Get<string>("/ecus/rrc/installerdetails");
+                string[] installerInfo = installer.Split(';');
+                string easySerial = Get<string>("/gateway/serialnumber");
+                string easyUpdate = Get<string>("/gateway/update/strategy");
+                string easyFirmware = Get<string>("/gateway/versionFirmware");
+                string easyHardware = Get<string>("/gateway/versionHardware");
+                string easyUuid = Get<string>("/gateway/uuid");
+                string cvSerial = Get<string>("/system/appliance/serialnumber");
+                string cvVersion = Get<string>("/system/appliance/version");
+                string cvBurner = Get<string>("/system/interfaces/ems/brandbit");
+                return new Information(ownerInfo[0], ownerInfo[1], ownerInfo[2], installerInfo[0], installerInfo[1], installerInfo[2],
+                    easySerial, easyUpdate, easyFirmware, easyHardware, easyUuid, cvSerial, cvVersion, cvBurner);
+            }
+            catch (Exception e)
+            {
+                Log(e.Message + " - " + e.StackTrace);
+            }
+            return null;
         }
 
         public SystemSettings? GetSystemSettings()
         {
-            bool desinfect = Get<string>("/dhwCircuits/dhwA/thermaldesinfect/state") == "on";
-
-            int nextTermalTime = Get<int>("/dhwCircuits/dhwA/thermaldesinfect/time");
-            string nextTermalDay = Get<string>("/dhwCircuits/dhwA/thermaldesinfect/weekday");
-            string sensitivity = Get<string>("/ecus/rrc/pirSensitivity");
-            string tempStep = Get<string>("/ecus/rrc/temperaturestep");
-            double adjustment = Get<double>("/heatingCircuits/hc1/temperatureAdjustment");
-            if (sensitivity != null && nextTermalDay!=null)
+            try
             {
-                return new SystemSettings(desinfect, Utils.GetNextDate(nextTermalDay, nextTermalTime), sensitivity, Utils.StringToDouble(tempStep), adjustment);
+                bool desinfect = Get<string>("/dhwCircuits/dhwA/thermaldesinfect/state") == "on";
+
+                int nextTermalTime = Get<int>("/dhwCircuits/dhwA/thermaldesinfect/time");
+                string nextTermalDay = Get<string>("/dhwCircuits/dhwA/thermaldesinfect/weekday");
+                string sensitivity = Get<string>("/ecus/rrc/pirSensitivity");
+                string tempStep = Get<string>("/ecus/rrc/temperaturestep");
+                double adjustment = Get<double>("/heatingCircuits/hc1/temperatureAdjustment");
+                if (sensitivity != null && nextTermalDay != null)
+                {
+                    return new SystemSettings(desinfect, Utils.GetNextDate(nextTermalDay, nextTermalTime), sensitivity, Utils.StringToDouble(tempStep), adjustment);
+                }
+            }
+            catch (Exception e)
+            {
+                Log(e.Message + " - " + e.StackTrace);
             }
             return null;
         }
 
         public bool SetUserMode(UserModes newMode)
         {
-            return Put("/heatingCircuits/hc1/usermode", "{\"value\":" + newMode.ToString().ToLower() + "}");
+            try
+            {
+                return Put("/heatingCircuits/hc1/usermode", "{\"value\":" + newMode.ToString().ToLower() + "}");
+            }
+            catch (Exception e)
+            {
+                Log(e.Message + " - " + e.StackTrace);
+            }
+            return false;
         }
 
         public bool SetTemperature(double temperature)
         {
-            bool result = Put("/heatingCircuits/hc1/temperatureRoomManual", "{\"value\":" + Utils.DoubleToString(temperature) + "}");
-            if (result)
+            try
             {
-                result = Put("/heatingCircuits/hc1/manualTempOverride/status", "{\"value\":'on'}");
+                bool result = Put("/heatingCircuits/hc1/temperatureRoomManual", "{\"value\":" + Utils.DoubleToString(temperature) + "}");
+                if (result)
+                {
+                    result = Put("/heatingCircuits/hc1/manualTempOverride/status", "{\"value\":'on'}");
+                }
+                if (result)
+                {
+                    result = Put("/heatingCircuits/hc1/manualTempOverride/temperature", "{\"value\":" + Utils.DoubleToString(temperature) + "}");
+                }
+                return result;
             }
-            if (result)
+            catch (Exception e)
             {
-                result = Put("/heatingCircuits/hc1/manualTempOverride/temperature", "{\"value\":" + Utils.DoubleToString(temperature) + "}");
+                Log(e.Message + " - " + e.StackTrace);
             }
-            return result;
+            return false;
         }
 
         #endregion
         
 #if !NET20 && !NET35
 
-        #region Async commands
+#region Async commands
 
         public async Task ConnectAsync()
         {
@@ -457,10 +581,10 @@ namespace NefitSharp
             });
         }
 
-        #endregion
+#endregion
 
 #endif
 
-        #endregion
+#endregion
     }
 }

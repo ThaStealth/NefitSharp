@@ -13,6 +13,7 @@ namespace NefitSharp.Entities
         public double CurrentSwitchpoint { get; }
         public bool PowerSaveMode { get; }
         public bool FireplaceMode { get; }
+        public bool HotWaterAvailable { get; }
         public bool TempOverride { get; }
         public bool HolidayMode { get; }
         public bool BoilerBlock { get; }
@@ -23,6 +24,7 @@ namespace NefitSharp.Entities
         public double TemperatureOverrideSetpoint { get; }
         public double TemparatureManualSetpoint { get; }
         public bool HedEnabled { get; }
+        string HedDeviceName { get; }
         public bool HedDeviceAtHome { get; }
         public UserModes UserMode { get; }
         internal UIStatus(NefitStatus stat)
@@ -105,7 +107,9 @@ namespace NefitSharp.Entities
             TemperatureOverrideSetpoint = Utils.StringToDouble(stat.TOT);
             TemparatureManualSetpoint = Utils.StringToDouble(stat.MMT);
             HedEnabled = stat.HED_EN == "true";
-            HedDeviceAtHome = stat.HED_DEV == "true";         
+            HedDeviceAtHome = stat.HED_DEV == "true";
+            HotWaterAvailable = stat.DHW == "on";
+            HedDeviceName = stat.HED_DB;
         }
     }
 }

@@ -84,7 +84,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.BackgroundImage = global::DigitalThermostat.Properties.Resources.nefitbackground;
+            this.BackgroundImage = global::DigitalThermostat.Properties.Resources.nefit;
             this.ClientSize = new System.Drawing.Size(635, 843);
             this.DoubleBuffered = true;
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;

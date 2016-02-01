@@ -157,14 +157,14 @@
   <data name="timerProgramInactive" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\timerProgramInactive.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="nefit-logo" type="System.Resources.ResXFileRef, System.Windows.Forms">
+  <data name="nefitLogo" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\nefit-logo.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="celcius" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\celcius.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="nefitbackground" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\nefitbackground.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="boilerOff" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\boilerOff.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="programOff" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\programOff.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>

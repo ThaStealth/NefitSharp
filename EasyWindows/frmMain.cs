@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using DigitalThermostat.Properties;
 using NefitSharp;
@@ -12,6 +13,7 @@ namespace DigitalThermostat
         private NefitClient _client;
         private UIStatus _currentStatus;
         private SystemSettings? _settings;
+        private UserProgram _currentProgram;
 
         private RectangleF _manualProgramClickZone;
         private RectangleF _autoProgramClickZone;
@@ -54,12 +56,13 @@ namespace DigitalThermostat
 
         private void Start()
         {
-            _client = new NefitClient(Settings.Default.serial,Settings.Default.accessKey,Settings.Default.password);
+            _client = new NefitClient(Settings.Default.serial,Settings.Default.accessKey,Settings.Default.password,Settings.Default.debugMode);
             _client.Connect();
             if (_client.Connected)
             {
                 tmrUpdate.Enabled = true;
             }
+     
         }
 
 
@@ -69,188 +72,176 @@ namespace DigitalThermostat
             e.DrawImage(original, rect, new Rectangle(0, 0, original.Width, original.Height), GraphicsUnit.Pixel);
         }
 
-        private void DrawSegments(Graphics e)
-        {
-            DrawScaledImage(e, Resources.whiteSegment, new Point(224, 137));
-            Bitmap segment2 = (Bitmap)Resources.whiteSegment.Clone();
-            segment2.RotateFlip(RotateFlipType.RotateNoneFlipX);
-            DrawScaledImage(e, segment2, new Point(320, 137));
-            
-            Bitmap segment3 = RotateImg(Resources.whiteSegment, (360 / 12) * 2, Color.Transparent);
-            DrawScaledImage(e, segment3, new Point(401, 151));
-
-            Bitmap segment4 = (Bitmap)Resources.whiteSegment.Clone();
-            segment4.RotateFlip(RotateFlipType.Rotate270FlipXY);
-            DrawScaledImage(e, segment4, new Point(468, 233));
-
-            Bitmap segment5 = (Bitmap)segment2.Clone();
-            segment5.RotateFlip(RotateFlipType.Rotate270FlipXY);
-            DrawScaledImage(e, segment5, new Point(468, 328));
-
-            Bitmap segment6 = RotateImg(Resources.whiteSegment, (360 / 12) * 5, Color.Transparent);
-            DrawScaledImage(e, segment6, new Point(393, 410));
-
-            Bitmap segment8 = (Bitmap)segment2.Clone();
-            segment8.RotateFlip(RotateFlipType.RotateNoneFlipY);
-            DrawScaledImage(e, segment8, new Point(319, 477));
-
-            Bitmap segment7 = (Bitmap)Resources.whiteSegment.Clone();
-            segment7.RotateFlip(RotateFlipType.RotateNoneFlipY);
-            DrawScaledImage(e, segment7, new Point(224, 477));
-
-            Bitmap segment9 = RotateImg(Resources.whiteSegment, (360 / 12) * 8, Color.Transparent);
-            DrawScaledImage(e, segment9, new Point(154, 402));
-
-            Bitmap segment10 = (Bitmap)segment5.Clone();
-            segment10.RotateFlip(RotateFlipType.RotateNoneFlipX);
-            DrawScaledImage(e, segment10, new Point(128, 328));
-
-            Bitmap segment11 = (Bitmap)segment4.Clone();
-            segment11.RotateFlip(RotateFlipType.RotateNoneFlipX);
-            DrawScaledImage(e, segment11, new Point(128, 233));
-            
-            Bitmap segment12 = RotateImg(Resources.whiteSegment, (360 / 12) * 11, Color.Transparent);
-            DrawScaledImage(e, segment12, new Point(142, 163));
-        }
 
 
         private void frmMain_Paint(object sender, PaintEventArgs e)
         {
-            if ((_client!=null && !_client.Connected) || _currentStatus == null)
+            try
             {
-                e.Graphics.DrawString("X", new Font("Leelawadee UI", 110F * Settings.Default.scale, FontStyle.Regular), new SolidBrush(Color.Red), new PointF(250 * Settings.Default.scale, 221 * Settings.Default.scale));
-            }
-            if (_currentStatus != null)
-            {
-                DrawScaledImage(e.Graphics, Resources.tempUp, new Point(293, 181));
-                DrawScaledImage(e.Graphics, Resources.tempDown, new Point(294, 451));
-                DrawScaledImage(e.Graphics, Resources.celcius, new Point(366, 268));
-                e.Graphics.DrawString((int) _currentStatus.InHouseTemperature + ",", new Font("Leelawadee UI", 90F * Settings.Default.scale, FontStyle.Regular), new SolidBrush(Color.White), new PointF(212 * Settings.Default.scale, 241 * Settings.Default.scale));
-                e.Graphics.DrawString((Math.Round(_currentStatus.InHouseTemperature - (int)_currentStatus.InHouseTemperature, 1) * 10).ToString(), new Font("Leelawadee UI", 45F * Settings.Default.scale, FontStyle.Regular), new SolidBrush(Color.White), new PointF(387 * Settings.Default.scale, 304 * Settings.Default.scale));
-
-                if (Math.Abs(_currentStatus.TemperatureSetpoint - _currentStatus.InHouseTemperature)>=0.5 )
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                if ((_client != null && !_client.Connected) || _currentStatus == null)
                 {
-                    Color spColor;
-                    if (_currentStatus.TemperatureSetpoint < _currentStatus.InHouseTemperature)
+                    e.Graphics.DrawString("X", new Font("Leelawadee UI", 110F * Settings.Default.scale, FontStyle.Regular), new SolidBrush(Color.Red), new PointF(250 * Settings.Default.scale, 221 * Settings.Default.scale));
+                }
+                if (_currentStatus != null)
+                {
+                    DrawScaledImage(e.Graphics, Resources.tempUp, new Point(293, 181));
+                    DrawScaledImage(e.Graphics, Resources.tempDown, new Point(294, 451));
+                    DrawScaledImage(e.Graphics, Resources.celcius, new Point(366, 268));
+                    e.Graphics.DrawString((int)_currentStatus.InHouseTemperature + ",", new Font("Leelawadee UI", 90F * Settings.Default.scale, FontStyle.Regular), new SolidBrush(Color.White), new PointF(212 * Settings.Default.scale, 241 * Settings.Default.scale));
+                    e.Graphics.DrawString((Math.Round(_currentStatus.InHouseTemperature - (int)_currentStatus.InHouseTemperature, 1) * 10).ToString(), new Font("Leelawadee UI", 45F * Settings.Default.scale, FontStyle.Regular), new SolidBrush(Color.White), new PointF(387 * Settings.Default.scale, 304 * Settings.Default.scale));
+                  Color blue = Color.FromArgb(0, 109, 254);
+                    Color red = Color.FromArgb(251, 0, 0);                    
+
+
+                    if (Math.Abs(_currentStatus.TemperatureSetpoint - _currentStatus.InHouseTemperature) >= 0.5)
                     {
-                        spColor = Color.FromArgb(0, 109, 254);
+                        Color spColor;
+                        if (_currentStatus.TemperatureSetpoint < _currentStatus.InHouseTemperature)
+                        {
+                            spColor = blue;
+                        }
+                        else
+                        {
+                            spColor = red;
+                        }
+
+                        e.Graphics.DrawString((int)_currentStatus.TemperatureSetpoint + ",", new Font("Leelawadee UI", 30F * Settings.Default.scale, FontStyle.Regular), new SolidBrush(spColor), new PointF(277 * Settings.Default.scale, 197 * Settings.Default.scale));
+                        e.Graphics.DrawString((Math.Round(_currentStatus.TemperatureSetpoint - (int)_currentStatus.TemperatureSetpoint, 1) * 10).ToString(), new Font("Leelawadee UI", 16F * Settings.Default.scale, FontStyle.Regular), new SolidBrush(spColor), new PointF(339 * Settings.Default.scale, 216 * Settings.Default.scale));
+                    }
+                    switch (_currentStatus.BoilerIndicator)
+                    {
+                        case BoilerIndicator.CentralHeating:
+                            DrawScaledImage(e.Graphics, Resources.flame, new Point(206, 322));
+                            break;
+                        case BoilerIndicator.HotWater:
+                            DrawScaledImage(e.Graphics, Resources.boiler, new Point(190, 322));
+                            break;
+                    }
+
+                    if (!_currentStatus.PowerSaveMode && !_currentStatus.HotWaterAvailable)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.boilerOff, new Point(300, 395));
+                    }
+                    else if (_currentStatus.HotWaterAvailable && _currentStatus.PowerSaveMode)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.leaf, new Point(300, 395));
+                    }
+                    else if (!_currentStatus.HotWaterAvailable && _currentStatus.PowerSaveMode)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.boilerOff, new Point(270, 395));
+                        DrawScaledImage(e.Graphics, Resources.leaf, new Point(330, 395));
+                    }
+
+
+
+                    if (_currentStatus.UserMode == UserModes.Clock && _currentProgram!=null)
+                    {
+                        Pen p = new Pen(Color.White, 16);
+                        for (int i = 0; i < 12; i++)
+                        {
+                            e.Graphics.DrawArc(p, 135, 144, 362, 362, 270 + 1 + (i * 29) + i, 28);
+                        }
+
+                        //foreach (ProgramSwitch swi in _currentProgram.Program[_currentProgram.ActiveProgram])
+                        //{
+                        //    if ((swi.Timestamp>=DateTime.Now.AddHours(-12) && swi.Timestamp < DateTime.Now )
+                        //    {
+                        //        p = new Pen(blue, 4);
+                        //        for (int i = 0; i < 12; i++)
+                        //        {
+                        //            e.Graphics.DrawArc(p, 147, 156, 338, 338, 270 + 1 + (i*29) + i, 28);
+                        //        }
+                        //    }
+                        //}
                     }
                     else
                     {
-                        spColor = Color.FromArgb(251, 0, 0);
+                        DrawScaledImage(e.Graphics, Resources.programOff, new Point(128, 137));
                     }
 
-                    e.Graphics.DrawString((int) _currentStatus.TemperatureSetpoint + ",", new Font("Leelawadee UI", 30F*Settings.Default.scale, FontStyle.Regular), new SolidBrush(spColor), new PointF(277 * Settings.Default.scale, 197 * Settings.Default.scale));
-                    e.Graphics.DrawString((Math.Round(_currentStatus.TemperatureSetpoint - (int) _currentStatus.TemperatureSetpoint, 1)*10).ToString(), new Font("Leelawadee UI", 16F * Settings.Default.scale, FontStyle.Regular), new SolidBrush(spColor), new PointF(339 * Settings.Default.scale, 216 * Settings.Default.scale));
-                }
-                switch (_currentStatus.BoilerIndicator)
-                {
-                    case BoilerIndicator.CentralHeating:
-                        DrawScaledImage(e.Graphics, Resources.flame, new Point(206, 322));                        
-                        break;
-                    case BoilerIndicator.HotWater:
-                        DrawScaledImage(e.Graphics, Resources.boiler, new Point(190, 322));                        
-                        break;
-                }
-                if (_currentStatus.PowerSaveMode)
-                {
-                    DrawScaledImage(e.Graphics, Resources.leaf, new Point(300, 395));
-                }
+                    if (_currentStatus.UserMode == UserModes.Manual)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.manualProgramActive, new Point(220, 555));
+                    }
+                    else
+                    {
+                        DrawScaledImage(e.Graphics, Resources.manualProgramInactive, new Point(220, 555));
+                    }
 
-                if (_currentStatus.UserMode == UserModes.Clock)
-                {
-                    DrawSegments(e.Graphics);
-                }
-                else
-                {
-                    DrawScaledImage(e.Graphics, Resources.programOff, new Point(128, 137));
-                }
+                    if (_currentStatus.FireplaceMode && _currentStatus.UserMode == UserModes.Manual)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.timerProgramFireplaceInactive, new Point(338, 555));
+                    }
+                    else if (_currentStatus.FireplaceMode && _currentStatus.UserMode == UserModes.Clock)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.timerProgramFireplaceActive, new Point(338, 555));
+                    }
+                    else if (_currentStatus.HolidayMode && _currentStatus.UserMode == UserModes.Manual)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.timerProgramHolidayInactive, new Point(338, 555));
+                    }
+                    else if (_currentStatus.HolidayMode && _currentStatus.UserMode == UserModes.Clock)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.timerProgramHolidayActive, new Point(338, 555));
+                    }
+                    else if (_currentStatus.DayAsSunday && _currentStatus.UserMode == UserModes.Manual)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.timerProgramSundayInactive, new Point(338, 555));
+                    }
+                    else if (_currentStatus.DayAsSunday && _currentStatus.UserMode == UserModes.Clock)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.timerProgramSundayActive, new Point(338, 555));
+                    }
+                    else if (_currentStatus.HedEnabled && _currentStatus.HedDeviceAtHome && _currentStatus.UserMode == UserModes.Manual)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.timerProgramHomeInactive, new Point(338, 555));
+                    }
+                    else if (_currentStatus.HedEnabled && _currentStatus.HedDeviceAtHome && _currentStatus.UserMode == UserModes.Clock)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.timerProgramHomeActive, new Point(338, 555));
+                    }
+                    else if (_currentStatus.HedEnabled && !_currentStatus.HedDeviceAtHome && _currentStatus.UserMode == UserModes.Manual)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.timerProgramNotHomeInactive, new Point(338, 555));
+                    }
+                    else if (_currentStatus.HedEnabled && !_currentStatus.HedDeviceAtHome && _currentStatus.UserMode == UserModes.Clock)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.timerProgramNotHomeActive, new Point(338, 555));
+                    }
+                    else if (_currentStatus.ClockProgram == ClockProgram.Auto && _currentStatus.UserMode == UserModes.Manual)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.timerProgramInactive, new Point(338, 555));
+                    }
+                    else if (_currentStatus.ClockProgram == ClockProgram.Auto && _currentStatus.UserMode == UserModes.Clock)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.timerProgramActive, new Point(338, 555));
+                    }
+                    else if (_currentStatus.ClockProgram == ClockProgram.SelfLearning && _currentStatus.UserMode == UserModes.Manual)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.timerProgramLearningInactive, new Point(338, 555));
+                    }
+                    else if (_currentStatus.ClockProgram == ClockProgram.SelfLearning && _currentStatus.UserMode == UserModes.Clock)
+                    {
+                        DrawScaledImage(e.Graphics, Resources.timerProgramLearningActive, new Point(338, 555));
+                    }
 
-                if (_currentStatus.UserMode == UserModes.Manual)
-                {
-                    DrawScaledImage(e.Graphics, Resources.manualProgramActive, new Point(220, 555));
                 }
-                else
-                {
-                    DrawScaledImage(e.Graphics, Resources.manualProgramInactive, new Point(220, 555));
-                }
-
-                if (_currentStatus.FireplaceMode && _currentStatus.UserMode == UserModes.Manual)
-                {
-                    DrawScaledImage(e.Graphics, Resources.timerProgramFireplaceInactive, new Point(338, 555));
-                }
-                else if (_currentStatus.FireplaceMode && _currentStatus.UserMode == UserModes.Clock)
-                {
-                    DrawScaledImage(e.Graphics, Resources.timerProgramFireplaceActive, new Point(338, 555));
-                }
-                else if (_currentStatus.HolidayMode && _currentStatus.UserMode == UserModes.Manual)
-                {
-                    DrawScaledImage(e.Graphics, Resources.timerProgramHolidayInactive, new Point(338, 555));
-                }
-                else if (_currentStatus.HolidayMode && _currentStatus.UserMode == UserModes.Clock)
-                {
-                    DrawScaledImage(e.Graphics, Resources.timerProgramHolidayActive, new Point(338, 555));
-                }
-                else if (_currentStatus.DayAsSunday && _currentStatus.UserMode == UserModes.Manual)
-                {
-                    DrawScaledImage(e.Graphics, Resources.timerProgramSundayInactive, new Point(338, 555));
-                }
-                else if (_currentStatus.DayAsSunday && _currentStatus.UserMode == UserModes.Clock)
-                {
-                    DrawScaledImage(e.Graphics, Resources.timerProgramSundayActive, new Point(338, 555));
-                }
-                else if (_currentStatus.HedEnabled && _currentStatus.HedDeviceAtHome && _currentStatus.UserMode == UserModes.Manual)
-                {
-                    DrawScaledImage(e.Graphics, Resources.timerProgramHomeInactive, new Point(338, 555));
-                }
-                else if (_currentStatus.HedEnabled && _currentStatus.HedDeviceAtHome && _currentStatus.UserMode == UserModes.Clock)
-                {
-                    DrawScaledImage(e.Graphics, Resources.timerProgramHomeActive, new Point(338, 555));
-                }
-                else if (_currentStatus.HedEnabled && !_currentStatus.HedDeviceAtHome && _currentStatus.UserMode == UserModes.Manual)
-                {
-                    DrawScaledImage(e.Graphics, Resources.timerProgramNotHomeInactive, new Point(338, 555));
-                }
-                else if (_currentStatus.HedEnabled && !_currentStatus.HedDeviceAtHome && _currentStatus.UserMode == UserModes.Clock)
-                {
-                    DrawScaledImage(e.Graphics, Resources.timerProgramNotHomeActive, new Point(338, 555));
-                }
-                else if (_currentStatus.ClockProgram == ClockProgram.Auto && _currentStatus.UserMode == UserModes.Manual)
-                {
-                    DrawScaledImage(e.Graphics, Resources.timerProgramInactive, new Point(338, 555));
-                }
-                else if (_currentStatus.ClockProgram == ClockProgram.Auto && _currentStatus.UserMode == UserModes.Clock)
-                {
-                    DrawScaledImage(e.Graphics, Resources.timerProgramActive, new Point(338, 555));
-                }
-                else if (_currentStatus.ClockProgram == ClockProgram.SelfLearning && _currentStatus.UserMode == UserModes.Manual)
-                {
-                    DrawScaledImage(e.Graphics, Resources.timerProgramLearningInactive, new Point(338, 555));
-                }
-                else if (_currentStatus.ClockProgram == ClockProgram.SelfLearning && _currentStatus.UserMode == UserModes.Clock)
-                {
-                    DrawScaledImage(e.Graphics, Resources.timerProgramLearningActive, new Point(338, 555));
-                }
-                
+            }
+            catch
+            {                
             }
         }
 
-        public static Bitmap RotateImg(Bitmap bmp, float angle, Color bkColor)
+        private static Bitmap RotateImg(Bitmap bmp, float angle)
         {
             angle = angle % 360;
             if (angle > 180)
+            {
                 angle -= 360;
-
-            System.Drawing.Imaging.PixelFormat pf = default(System.Drawing.Imaging.PixelFormat);
-            if (bkColor == Color.Transparent)
-            {
-                pf = System.Drawing.Imaging.PixelFormat.Format32bppArgb;
-            }
-            else
-            {
-                pf = bmp.PixelFormat;
             }
 
+            System.Drawing.Imaging.PixelFormat pf = System.Drawing.Imaging.PixelFormat.Format32bppArgb;             
             float sin = (float)Math.Abs(Math.Sin(angle * Math.PI / 180.0)); // this function takes radians
             float cos = (float)Math.Abs(Math.Cos(angle * Math.PI / 180.0)); // this one too
             float newImgWidth = sin * bmp.Height + cos * bmp.Width;
@@ -261,27 +252,31 @@ namespace DigitalThermostat
             if (angle > 0)
             {
                 if (angle <= 90)
-                    originX = sin * bmp.Height;
+                {
+                    originX = sin*bmp.Height;
+                }
                 else
                 {
                     originX = newImgWidth;
-                    originY = newImgHeight - sin * bmp.Width;
+                    originY = newImgHeight - sin*bmp.Width;
                 }
             }
             else
             {
                 if (angle >= -90)
-                    originY = sin * bmp.Width;
+                {
+                    originY = sin*bmp.Width;
+                }
                 else
                 {
-                    originX = newImgWidth - sin * bmp.Height;
+                    originX = newImgWidth - sin*bmp.Height;
                     originY = newImgHeight;
                 }
             }
 
             Bitmap newImg = new Bitmap((int)newImgWidth, (int)newImgHeight, pf);
             Graphics g = Graphics.FromImage(newImg);
-            g.Clear(bkColor);
+            g.Clear(Color.Transparent);
             g.TranslateTransform(originX, originY); // offset the origin to our calculated values
             g.RotateTransform(angle); // set up rotate
             g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear;
@@ -293,66 +288,91 @@ namespace DigitalThermostat
 
         private void frmMain_Click(object sender, EventArgs e)
         {
-            Point corrPos = new Point(MousePosition.X - Left, MousePosition.Y - Top);
-            if (_client!=null && _client.Connected)
+            try
             {
-                if (_temperatureUpClickZone.Contains(corrPos))
+                Point corrPos = new Point(MousePosition.X - Left, MousePosition.Y - Top);
+                if (_client != null && _client.Connected)
                 {
-                    double newSetpoint = _currentStatus.TemperatureSetpoint;
-                    if (_settings.HasValue)
+                    if (_temperatureUpClickZone.Contains(corrPos))
                     {
-                        newSetpoint += _settings.Value.EasyTemperatureStep;
+                        double newSetpoint = _currentStatus.TemperatureSetpoint;
+                        if (_settings.HasValue)
+                        {
+                            newSetpoint += _settings.Value.EasyTemperatureStep;
+                        }
+                        else
+                        {
+                            newSetpoint += 0.5;
+                        }
+                        _client.SetTemperature(newSetpoint);
                     }
-                    else
+                    else if (_temperatureDownClickZone.Contains(corrPos))
                     {
-                        newSetpoint += 0.5;
+                        double newSetpoint = _currentStatus.TemperatureSetpoint;
+                        if (_settings.HasValue)
+                        {
+                            newSetpoint -= _settings.Value.EasyTemperatureStep;
+                        }
+                        else
+                        {
+                            newSetpoint -= 0.5;
+                        }
+                        _client.SetTemperature(newSetpoint);
                     }
-                    _client.SetTemperature(newSetpoint);
-                }
-                else if (_temperatureDownClickZone.Contains(corrPos))
-                {
-                    double newSetpoint = _currentStatus.TemperatureSetpoint;
-                    if (_settings.HasValue)
-                    {
-                        newSetpoint -= _settings.Value.EasyTemperatureStep;
-                    }
-                    else
-                    {
-                        newSetpoint -= 0.5;
-                    }
-                    _client.SetTemperature(newSetpoint);
-                }
 
-                else if (_manualProgramClickZone.Contains(corrPos) && _currentStatus.UserMode == UserModes.Clock)
-                {
-                    _client.SetUserMode(UserModes.Manual);
+                    else if (_manualProgramClickZone.Contains(corrPos) && _currentStatus.UserMode == UserModes.Clock)
+                    {
+                        _client.SetUserMode(UserModes.Manual);
+                    }
+                    else if (_autoProgramClickZone.Contains(corrPos) && _currentStatus.UserMode == UserModes.Manual)
+                    {
+                        _client.SetUserMode(UserModes.Clock);
+                    }
                 }
-                else if (_autoProgramClickZone.Contains(corrPos) && _currentStatus.UserMode == UserModes.Manual)
+                if (_contextMenu.Contains(corrPos))
                 {
-                    _client.SetUserMode(UserModes.Clock);
+                    ctxSettings.Show(MousePosition);
                 }
             }
-            if (_contextMenu.Contains(corrPos))
+            catch
             {
-                ctxSettings.Show(MousePosition);
+                
             }
         }
 
         private async void tmrUpdate_Tick(object sender, EventArgs e)
         {
-            if (_client.Connected)
+            try
             {
-                if (_settings == null)
+                if (_client.Connected)
                 {
-                    _settings = await _client.GetSystemSettingsAsync();
-                }
+                    if (_client.AuthenticationError)
+                    {
+                        tmrUpdate.Stop();
+                        MessageBox.Show("Authentication error, please recheck your credentials", "Authentication error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        settingsToolStripMenuItem_Click(this, new EventArgs());
+                    }
 
-                UIStatus stat = await _client.GetUIStatusAsync();
-                if (stat != null)
-                {
-                    _currentStatus = stat;
-                    Invalidate();
+                    if (_settings == null)
+                    {
+                        _settings = await _client.GetSystemSettingsAsync();
+                    }
+                    if (_currentProgram == null)
+                    {
+                        _currentProgram = await _client.GetProgramAsync();
+                    }
+                    UIStatus stat = await _client.GetUIStatusAsync();
+                    if (stat != null)
+                    {
+                        _currentStatus = stat;
+                        Invalidate();
+                    }
                 }
+                 
+            }
+            catch
+            {
+
             }
         }
 

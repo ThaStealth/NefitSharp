@@ -94,5 +94,17 @@ namespace DigitalThermostat.Properties {
                 this["firstStart"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool debugMode {
+            get {
+                return ((bool)(this["debugMode"]));
+            }
+            set {
+                this["debugMode"] = value;
+            }
+        }
     }
 }

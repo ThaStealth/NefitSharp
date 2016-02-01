@@ -42,6 +42,7 @@
             this.nudRefreshInterval = new System.Windows.Forms.NumericUpDown();
             this.label5 = new System.Windows.Forms.Label();
             this.label6 = new System.Windows.Forms.Label();
+            this.cbxDebugMode = new System.Windows.Forms.CheckBox();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.nudRefreshInterval)).BeginInit();
@@ -49,7 +50,7 @@
             // 
             // btnSave
             // 
-            this.btnSave.Location = new System.Drawing.Point(146, 194);
+            this.btnSave.Location = new System.Drawing.Point(146, 214);
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(75, 23);
             this.btnSave.TabIndex = 6;
@@ -126,6 +127,7 @@
             // 
             // groupBox2
             // 
+            this.groupBox2.Controls.Add(this.cbxDebugMode);
             this.groupBox2.Controls.Add(this.label4);
             this.groupBox2.Controls.Add(this.cbxScale);
             this.groupBox2.Controls.Add(this.nudRefreshInterval);
@@ -133,10 +135,10 @@
             this.groupBox2.Controls.Add(this.label6);
             this.groupBox2.Location = new System.Drawing.Point(12, 116);
             this.groupBox2.Name = "groupBox2";
-            this.groupBox2.Size = new System.Drawing.Size(209, 72);
+            this.groupBox2.Size = new System.Drawing.Size(209, 92);
             this.groupBox2.TabIndex = 13;
             this.groupBox2.TabStop = false;
-            this.groupBox2.Text = "Digital Thermostat";
+            this.groupBox2.Text = "Easy for Windows";
             // 
             // label4
             // 
@@ -207,11 +209,22 @@
             this.label6.TabIndex = 5;
             this.label6.Text = "GUI Scale:";
             // 
+            // cbxDebugMode
+            // 
+            this.cbxDebugMode.AutoSize = true;
+            this.cbxDebugMode.Location = new System.Drawing.Point(57, 72);
+            this.cbxDebugMode.Name = "cbxDebugMode";
+            this.cbxDebugMode.Size = new System.Drawing.Size(87, 17);
+            this.cbxDebugMode.TabIndex = 10;
+            this.cbxDebugMode.Text = "Debug mode";
+            this.cbxDebugMode.UseVisualStyleBackColor = true;
+
+            // 
             // FrmSettings
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(228, 222);
+            this.ClientSize = new System.Drawing.Size(228, 241);
             this.Controls.Add(this.groupBox2);
             this.Controls.Add(this.groupBox1);
             this.Controls.Add(this.btnSave);
@@ -248,5 +261,6 @@
         private System.Windows.Forms.NumericUpDown nudRefreshInterval;
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.TextBox tbxAccessCode;
+        private System.Windows.Forms.CheckBox cbxDebugMode;
     }
 }

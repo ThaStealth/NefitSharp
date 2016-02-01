@@ -38,7 +38,7 @@
             // 
             // logoPictureBox
             // 
-            this.logoPictureBox.Image = global::DigitalThermostat.Properties.Resources.nefit_logo;
+            this.logoPictureBox.Image = global::DigitalThermostat.Properties.Resources.nefitLogo;
             this.logoPictureBox.Location = new System.Drawing.Point(12, 12);
             this.logoPictureBox.Name = "logoPictureBox";
             this.logoPictureBox.Size = new System.Drawing.Size(78, 78);

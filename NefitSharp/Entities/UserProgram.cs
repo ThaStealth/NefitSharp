@@ -5,11 +5,7 @@ namespace NefitSharp.Entities
 {
     public class UserProgram
     {
-        public ProgramSwitch[] Program0 { get; }
-
-        public ProgramSwitch[] Program1 { get; }
-
-        public ProgramSwitch[] Program2 { get; }
+        public ProgramSwitch[][] Program { get; }
         
         public int ActiveProgram { get; }
         public bool FireplaceFunction { get; }
@@ -19,9 +15,10 @@ namespace NefitSharp.Entities
 
         internal UserProgram(NefitProgram[] program0, NefitProgram[] program1, NefitProgram[] program2, int activeProgram, bool fireplaceFunction, bool preHeating, string userSwitchpointName1, string userSwitchpointName2)
         {
-            Program0 = ParseProgram(program0);
-            Program1 = ParseProgram(program1);
-            Program2 = ParseProgram(program2);
+            Program = new ProgramSwitch[3][];            
+            Program[0] = ParseProgram(program0);
+            Program[1] = ParseProgram(program1);
+            Program[2] = ParseProgram(program2);
             ActiveProgram = activeProgram;
             FireplaceFunction = fireplaceFunction;
             PreHeating = preHeating;
