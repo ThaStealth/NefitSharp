@@ -33,15 +33,15 @@
             this.label2 = new System.Windows.Forms.Label();
             this.label3 = new System.Windows.Forms.Label();
             this.tbxSerial = new System.Windows.Forms.MaskedTextBox();
-            this.tbxAccessCode = new System.Windows.Forms.MaskedTextBox();
             this.tbxPassword = new System.Windows.Forms.TextBox();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
+            this.tbxAccessCode = new System.Windows.Forms.TextBox();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
+            this.label4 = new System.Windows.Forms.Label();
             this.cbxScale = new System.Windows.Forms.ComboBox();
             this.nudRefreshInterval = new System.Windows.Forms.NumericUpDown();
             this.label5 = new System.Windows.Forms.Label();
             this.label6 = new System.Windows.Forms.Label();
-            this.label4 = new System.Windows.Forms.Label();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.nudRefreshInterval)).BeginInit();
@@ -52,7 +52,7 @@
             this.btnSave.Location = new System.Drawing.Point(146, 194);
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(75, 23);
-            this.btnSave.TabIndex = 0;
+            this.btnSave.TabIndex = 6;
             this.btnSave.Text = "Save";
             this.btnSave.UseVisualStyleBackColor = true;
             this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
@@ -90,15 +90,7 @@
             this.tbxSerial.Mask = "000000000";
             this.tbxSerial.Name = "tbxSerial";
             this.tbxSerial.Size = new System.Drawing.Size(68, 20);
-            this.tbxSerial.TabIndex = 9;
-            // 
-            // tbxAccessCode
-            // 
-            this.tbxAccessCode.Location = new System.Drawing.Point(84, 45);
-            this.tbxAccessCode.Mask = "LLLLLLLLLLLLLLLL";
-            this.tbxAccessCode.Name = "tbxAccessCode";
-            this.tbxAccessCode.Size = new System.Drawing.Size(108, 20);
-            this.tbxAccessCode.TabIndex = 10;
+            this.tbxSerial.TabIndex = 1;
             // 
             // tbxPassword
             // 
@@ -107,12 +99,12 @@
             this.tbxPassword.Name = "tbxPassword";
             this.tbxPassword.PasswordChar = '*';
             this.tbxPassword.Size = new System.Drawing.Size(68, 20);
-            this.tbxPassword.TabIndex = 11;
+            this.tbxPassword.TabIndex = 3;
             // 
             // groupBox1
             // 
-            this.groupBox1.Controls.Add(this.tbxPassword);
             this.groupBox1.Controls.Add(this.tbxAccessCode);
+            this.groupBox1.Controls.Add(this.tbxPassword);
             this.groupBox1.Controls.Add(this.tbxSerial);
             this.groupBox1.Controls.Add(this.label3);
             this.groupBox1.Controls.Add(this.label2);
@@ -123,6 +115,14 @@
             this.groupBox1.TabIndex = 12;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Easy Credentials";
+            // 
+            // tbxAccessCode
+            // 
+            this.tbxAccessCode.Location = new System.Drawing.Point(84, 45);
+            this.tbxAccessCode.MaxLength = 16;
+            this.tbxAccessCode.Name = "tbxAccessCode";
+            this.tbxAccessCode.Size = new System.Drawing.Size(119, 20);
+            this.tbxAccessCode.TabIndex = 2;
             // 
             // groupBox2
             // 
@@ -138,6 +138,15 @@
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Digital Thermostat";
             // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.Location = new System.Drawing.Point(161, 48);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(18, 13);
+            this.label4.TabIndex = 9;
+            this.label4.Text = "(s)";
+            // 
             // cbxScale
             // 
             this.cbxScale.FormattingEnabled = true;
@@ -149,7 +158,7 @@
             this.cbxScale.Location = new System.Drawing.Point(97, 19);
             this.cbxScale.Name = "cbxScale";
             this.cbxScale.Size = new System.Drawing.Size(58, 21);
-            this.cbxScale.TabIndex = 8;
+            this.cbxScale.TabIndex = 4;
             this.cbxScale.Text = "100%";
             // 
             // nudRefreshInterval
@@ -173,7 +182,7 @@
             0});
             this.nudRefreshInterval.Name = "nudRefreshInterval";
             this.nudRefreshInterval.Size = new System.Drawing.Size(58, 20);
-            this.nudRefreshInterval.TabIndex = 7;
+            this.nudRefreshInterval.TabIndex = 5;
             this.nudRefreshInterval.Value = new decimal(new int[] {
             1,
             0,
@@ -197,15 +206,6 @@
             this.label6.Size = new System.Drawing.Size(59, 13);
             this.label6.TabIndex = 5;
             this.label6.Text = "GUI Scale:";
-            // 
-            // label4
-            // 
-            this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(161, 48);
-            this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(18, 13);
-            this.label4.TabIndex = 9;
-            this.label4.Text = "(s)";
             // 
             // FrmSettings
             // 
@@ -239,7 +239,6 @@
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.MaskedTextBox tbxSerial;
-        private System.Windows.Forms.MaskedTextBox tbxAccessCode;
         private System.Windows.Forms.GroupBox groupBox1;
         private System.Windows.Forms.TextBox tbxPassword;
         private System.Windows.Forms.GroupBox groupBox2;
@@ -248,5 +247,6 @@
         private System.Windows.Forms.ComboBox cbxScale;
         private System.Windows.Forms.NumericUpDown nudRefreshInterval;
         private System.Windows.Forms.Label label4;
+        private System.Windows.Forms.TextBox tbxAccessCode;
     }
 }

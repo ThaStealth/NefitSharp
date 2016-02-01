@@ -7,7 +7,7 @@ namespace DigitalThermostat
     public partial class FrmSettings : Form
     {
         public FrmSettings()
-        {
+        {            
             InitializeComponent();
             tbxSerial.Text = Settings.Default.serial;
             tbxAccessCode.Text = Settings.Default.accessKey;
