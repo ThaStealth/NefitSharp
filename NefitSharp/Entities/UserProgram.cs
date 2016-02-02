@@ -31,7 +31,7 @@ namespace NefitSharp.Entities
             List<ProgramSwitch> programs2 = new List<ProgramSwitch>();
             foreach (NefitProgram prog in proag)
             {
-                programs2.Add(new ProgramSwitch(prog.d, prog.t, prog.active == "on", prog.T));
+                programs2.Add(new ProgramSwitch(prog));
             }
             return programs2.ToArray();
         }

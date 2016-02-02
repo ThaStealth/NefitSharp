@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Mime;
 using System.Reflection;
+using System.Text;
 using System.Threading;
 #if !NET20 && !NET35
 using System.Threading.Tasks;
@@ -65,7 +66,7 @@ namespace NefitSharp
             _serial = serial;
             _debugMode = debugMode;
             _accessKey = accesskey;
-            _encryptionHelper = new NefitEncryption(serial, accesskey, password);
+            _encryptionHelper = new NefitEncryption(serial, accesskey, password);            
         }
 
         #region XMPP Communication
@@ -287,9 +288,13 @@ namespace NefitSharp
         {
             try
             {
+                for (int i = 0; i < 5; i++)
+                {
+                    string get = Get<string>("/dhwCircuits/dhwA/dhwNextSwitchpoint");
+                }
                 int activeProgram = Get<int>("/ecus/rrc/userprogram/activeprogram");
-                bool preheating = Get<string>("/ecus/rrc/userprogram/activeprogram") == "off";
-                bool fireplaceFunction = Get<string>("/ecus/rrc/userprogram/activeprogram") == "off";
+                bool preheating = Get<string>("/ecus/rrc/userprogram/fireplacefunction") == "on";
+                bool fireplaceFunction = Get<string>("/ecus/rrc/userprogram/preheating") == "on";
                 string switchpointName1 = Get<string>("/ecus/rrc/userprogram/userswitchpointname1");
                 string switchpointName2 = Get<string>("/ecus/rrc/userprogram/userswitchpointname2");
                 NefitProgram[] program0 = Get<NefitProgram[]>("/ecus/rrc/userprogram/program0");
@@ -314,6 +319,7 @@ namespace NefitSharp
                 NefitStatus status = Get<NefitStatus>("/ecus/rrc/uiStatus");
                 if (status != null)
                 {
+
                     double outdoor = Get<double>("/system/sensors/temperatures/outdoor_t1");
                     string serviceStatus = Get<string>("/gateway/remote/servicestate");
                     bool ignition = Get<string>("/ecus/rrc/pm/ignition/status") == "true";
@@ -331,6 +337,21 @@ namespace NefitSharp
                         return new FullStatus(status, serviceStatus, outdoor, operationMode, refillNeeded, ignition, closingValve, shortTapping, systemLeaking, systemPressure, chSupplyTemperature, new StatusCode(displayCode, Convert.ToInt32(causeCode)));
                     }
                 }
+            }
+            catch (Exception e)
+            {
+                Log(e.Message + " - " + e.StackTrace);
+            }
+            return null;
+        }
+
+        public ProgramSwitch[] GetCurrentAndNextSwitch()
+        {
+            try
+            {
+                NefitSwitch[] lat = Get<NefitSwitch[]>("/dhwCircuits/dhwA/dhwCurrentSwitchpoint");
+                NefitSwitch[] lon = Get<NefitSwitch[]>("/dhwCircuits/dhwA/dhwNextSwitchpoint");
+                return new ProgramSwitch[] {new ProgramSwitch(lat[0]), new ProgramSwitch(lon[0])};
             }
             catch (Exception e)
             {
@@ -514,6 +535,14 @@ namespace NefitSharp
             return await Task.Run(() =>
             {
                 return GetProgram();
+            });
+        }
+
+        public async Task<ProgramSwitch[]> GetCurrentAndNextSwitchAsync()
+        {
+            return await Task.Run(() =>
+            {
+                return GetCurrentAndNextSwitch();
             });
         }
 

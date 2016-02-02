@@ -13,7 +13,7 @@ namespace DigitalThermostat
         private NefitClient _client;
         private UIStatus _currentStatus;
         private SystemSettings? _settings;
-        private UserProgram _currentProgram;
+        private ProgramSwitch[] _currentProgram;
 
         private RectangleF _manualProgramClickZone;
         private RectangleF _autoProgramClickZone;
@@ -62,7 +62,6 @@ namespace DigitalThermostat
             {
                 tmrUpdate.Enabled = true;
             }
-     
         }
 
 
@@ -359,7 +358,7 @@ namespace DigitalThermostat
                     }
                     if (_currentProgram == null)
                     {
-                        _currentProgram = await _client.GetProgramAsync();
+                        _currentProgram = await _client.GetCurrentAndNextSwitchAsync();
                     }
                     UIStatus stat = await _client.GetUIStatusAsync();
                     if (stat != null)

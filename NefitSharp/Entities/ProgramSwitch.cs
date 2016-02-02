@@ -1,4 +1,5 @@
 using System;
+using NefitSharp.Entities.Internal;
 
 namespace NefitSharp.Entities
 {
@@ -18,6 +19,20 @@ namespace NefitSharp.Entities
             Temperature = temperature;
         }
 
+        internal ProgramSwitch(NefitSwitch prog)
+        {
+            DateTime now = Utils.GetNextDate(prog.d, prog.t);
+            Timestamp = now;
+            On = prog.dhw == "on";
+            Temperature = prog.T;
+        }
 
+        internal ProgramSwitch(NefitProgram prog)
+        {
+            DateTime now = Utils.GetNextDate(prog.d, prog.t);
+            Timestamp = now;
+            On = prog.active == "on";
+            Temperature = prog.T;            
+        }
     }
 }
