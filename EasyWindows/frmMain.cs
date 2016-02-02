@@ -21,6 +21,9 @@ namespace DigitalThermostat
         private RectangleF _temperatureDownClickZone;
         private RectangleF _contextMenu;
         private Point _mouseLocation;
+        private static Color _lightBlueColor = Color.FromArgb(129, 183, 255);
+        private static Color _blueColor = Color.FromArgb(0, 109, 254);
+        private static Color _redColor = Color.FromArgb(251, 0, 0);
 
         public FrmMain()
         {
@@ -56,7 +59,7 @@ namespace DigitalThermostat
 
         private void Start()
         {
-            _client = new NefitClient(Settings.Default.serial,Settings.Default.accessKey,Settings.Default.password,Settings.Default.debugMode);
+            _client = new NefitClient(Settings.Default.serial, Settings.Default.accessKey, Settings.Default.password, Settings.Default.debugMode);
             _client.Connect();
             if (_client.Connected)
             {
@@ -70,8 +73,6 @@ namespace DigitalThermostat
             Rectangle rect = new Rectangle(Convert.ToInt32(originalPos.X * Settings.Default.scale), Convert.ToInt32(originalPos.Y * Settings.Default.scale), Convert.ToInt32(original.Width * Settings.Default.scale), Convert.ToInt32(original.Height * Settings.Default.scale));
             e.DrawImage(original, rect, new Rectangle(0, 0, original.Width, original.Height), GraphicsUnit.Pixel);
         }
-
-
 
         private void frmMain_Paint(object sender, PaintEventArgs e)
         {
@@ -89,8 +90,7 @@ namespace DigitalThermostat
                     DrawScaledImage(e.Graphics, Resources.celcius, new Point(366, 268));
                     e.Graphics.DrawString((int)_currentStatus.InHouseTemperature + ",", new Font("Leelawadee UI", 90F * Settings.Default.scale, FontStyle.Regular), new SolidBrush(Color.White), new PointF(212 * Settings.Default.scale, 241 * Settings.Default.scale));
                     e.Graphics.DrawString((Math.Round(_currentStatus.InHouseTemperature - (int)_currentStatus.InHouseTemperature, 1) * 10).ToString(), new Font("Leelawadee UI", 45F * Settings.Default.scale, FontStyle.Regular), new SolidBrush(Color.White), new PointF(387 * Settings.Default.scale, 304 * Settings.Default.scale));
-                  Color blue = Color.FromArgb(0, 109, 254);
-                    Color red = Color.FromArgb(251, 0, 0);                    
+                                     
 
 
                     if (Math.Abs(_currentStatus.TemperatureSetpoint - _currentStatus.InHouseTemperature) >= 0.5)
@@ -98,11 +98,11 @@ namespace DigitalThermostat
                         Color spColor;
                         if (_currentStatus.TemperatureSetpoint < _currentStatus.InHouseTemperature)
                         {
-                            spColor = blue;
+                            spColor = _blueColor;
                         }
                         else
                         {
-                            spColor = red;
+                            spColor = _redColor;
                         }
 
                         e.Graphics.DrawString((int)_currentStatus.TemperatureSetpoint + ",", new Font("Leelawadee UI", 30F * Settings.Default.scale, FontStyle.Regular), new SolidBrush(spColor), new PointF(277 * Settings.Default.scale, 197 * Settings.Default.scale));
@@ -136,27 +136,34 @@ namespace DigitalThermostat
 
                     if (_currentStatus.UserMode == UserModes.Clock && _currentProgram!=null)
                     {
-                        Pen p = new Pen(Color.White, 16);
+                        Pen whitePen = new Pen(Color.White, 16);
+                        Pen bluePen = new Pen(_blueColor, 4);
+                        Pen lightBluePen = new Pen(_lightBlueColor, 4);
+                        Pen redPen = new Pen(_redColor, 4);
                         for (int i = 0; i < 12; i++)
-                        {
-                            e.Graphics.DrawArc(p, 135, 144, 362, 362, 270 + 1 + (i * 29) + i, 28);
-                        }
+                        {                     
+                            int segmentStart = 271 + (i*29) + i;                        
+                            e.Graphics.DrawArc(whitePen, 135, 144, 362, 362, segmentStart, 28);
 
-                        //foreach (ProgramSwitch swi in _currentProgram.Program[_currentProgram.ActiveProgram])
-                        //{
-                        //    if ((swi.Timestamp>=DateTime.Now.AddHours(-12) && swi.Timestamp < DateTime.Now )
-                        //    {
-                        //        p = new Pen(blue, 4);
-                        //        for (int i = 0; i < 12; i++)
-                        //        {
-                        //            e.Graphics.DrawArc(p, 147, 156, 338, 338, 270 + 1 + (i*29) + i, 28);
-                        //        }
-                        //    }
-                        //}
+                            int subSegments = 5;
+                            for (int q = 0;q < subSegments; q++)
+                            {
+                                Pen p;
+                                if (q%2==0)
+                                {
+                                    p = redPen;
+                                }
+                                else
+                                {
+                                    p = bluePen;
+                                }                               
+                                e.Graphics.DrawArc(p, 147, 156, 338, 338, segmentStart+ (28.0F / subSegments) * q, 28.0F / subSegments);
+                            }
+                        }
                     }
                     else
-                    {
-                        DrawScaledImage(e.Graphics, Resources.programOff, new Point(128, 137));
+                    {                        
+                        e.Graphics.DrawArc(new Pen(Color.FromArgb(128, 128, 128), 16), 135, 144, 362, 362, 0, 360);
                     }
 
                     if (_currentStatus.UserMode == UserModes.Manual)
@@ -231,60 +238,7 @@ namespace DigitalThermostat
             {                
             }
         }
-
-        private static Bitmap RotateImg(Bitmap bmp, float angle)
-        {
-            angle = angle % 360;
-            if (angle > 180)
-            {
-                angle -= 360;
-            }
-
-            System.Drawing.Imaging.PixelFormat pf = System.Drawing.Imaging.PixelFormat.Format32bppArgb;             
-            float sin = (float)Math.Abs(Math.Sin(angle * Math.PI / 180.0)); // this function takes radians
-            float cos = (float)Math.Abs(Math.Cos(angle * Math.PI / 180.0)); // this one too
-            float newImgWidth = sin * bmp.Height + cos * bmp.Width;
-            float newImgHeight = sin * bmp.Width + cos * bmp.Height;
-            float originX = 0f;
-            float originY = 0f;
-
-            if (angle > 0)
-            {
-                if (angle <= 90)
-                {
-                    originX = sin*bmp.Height;
-                }
-                else
-                {
-                    originX = newImgWidth;
-                    originY = newImgHeight - sin*bmp.Width;
-                }
-            }
-            else
-            {
-                if (angle >= -90)
-                {
-                    originY = sin*bmp.Width;
-                }
-                else
-                {
-                    originX = newImgWidth - sin*bmp.Height;
-                    originY = newImgHeight;
-                }
-            }
-
-            Bitmap newImg = new Bitmap((int)newImgWidth, (int)newImgHeight, pf);
-            Graphics g = Graphics.FromImage(newImg);
-            g.Clear(Color.Transparent);
-            g.TranslateTransform(originX, originY); // offset the origin to our calculated values
-            g.RotateTransform(angle); // set up rotate
-            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear;
-            g.DrawImageUnscaled(bmp, 0, 0); // draw the image at 0, 0
-            g.Dispose();
-
-            return newImg;
-        }
-
+        
         private void frmMain_Click(object sender, EventArgs e)
         {
             try

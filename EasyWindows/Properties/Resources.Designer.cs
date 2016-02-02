@@ -153,16 +153,6 @@ namespace DigitalThermostat.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap programOff {
-            get {
-                object obj = ResourceManager.GetObject("programOff", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
         internal static System.Drawing.Bitmap tempDown {
             get {
                 object obj = ResourceManager.GetObject("tempDown", resourceCulture);
@@ -316,16 +306,6 @@ namespace DigitalThermostat.Properties {
         internal static System.Drawing.Bitmap timerProgramSundayInactive {
             get {
                 object obj = ResourceManager.GetObject("timerProgramSundayInactive", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
-        internal static System.Drawing.Bitmap whiteSegment {
-            get {
-                object obj = ResourceManager.GetObject("whiteSegment", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
