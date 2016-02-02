@@ -134,36 +134,88 @@ namespace DigitalThermostat
 
 
 
-                    if (_currentStatus.UserMode == UserModes.Clock && _currentProgram!=null)
+                    if (_currentStatus.UserMode == UserModes.Clock && _currentProgram != null)
                     {
-                        Pen whitePen = new Pen(Color.White, 16);
-                        Pen bluePen = new Pen(_blueColor, 4);
-                        Pen lightBluePen = new Pen(_lightBlueColor, 4);
-                        Pen redPen = new Pen(_redColor, 4);
+                        Pen whitePen = new Pen(Color.White, 16 * Settings.Default.scale);
+                        Pen bluePen = new Pen(_blueColor, 4 * Settings.Default.scale);
+                        Pen lightBluePen = new Pen(_lightBlueColor, 4 * Settings.Default.scale);
+                        Pen redPen = new Pen(_redColor, 4 * Settings.Default.scale);
                         for (int i = 0; i < 12; i++)
-                        {                     
-                            int segmentStart = 271 + (i*29) + i;                        
-                            e.Graphics.DrawArc(whitePen, 135, 144, 362, 362, segmentStart, 28);
-
-                            int subSegments = 5;
-                            for (int q = 0;q < subSegments; q++)
+                        {
+                            int segmentStart = 271 + (i*29) + i;
+                            e.Graphics.DrawArc(whitePen, 135 * Settings.Default.scale, 144 * Settings.Default.scale, 362 * Settings.Default.scale, 362 * Settings.Default.scale, segmentStart, 28);
+                            Pen p;
+                            if (i == _currentProgram[1].Timestamp.Hour%12 && (_currentProgram[1].Timestamp.Minute != 0))
                             {
-                                Pen p;
-                                if (q%2==0)
+                                for (int q = 0; q < 28; q++)
+                                {
+                                    if ((q < Convert.ToInt32(_currentProgram[1].Timestamp.Minute/2.14) && _currentProgram[0].On) || (q < Convert.ToInt32(_currentProgram[1].Timestamp.Minute/2.14) && _currentProgram[1].On))
+                                    {
+                                        p = redPen;
+                                    }
+                                    else
+                                    {
+                                        p = bluePen;
+                                    }
+                                    e.Graphics.DrawArc(p, 147 * Settings.Default.scale, 156 * Settings.Default.scale, 338 * Settings.Default.scale, 338 * Settings.Default.scale, segmentStart + q, 1);
+                                }
+                            }
+                            else if (i == DateTime.Now.Hour%12 && DateTime.Now.Minute != 0)
+                            {
+                                for (int q = 0; q < 28; q++)
+                                {
+                                    if (((q < Convert.ToInt32(DateTime.Now.Minute/2.14)) && (_currentProgram[1].On)) || ((q >= Convert.ToInt32(DateTime.Now.Minute/2.14)) && _currentProgram[0].On))
+                                    {
+                                        p = redPen;
+                                    }
+                                    else
+                                    {
+                                        p = bluePen;
+                                    }
+
+                                    e.Graphics.DrawArc(p, 147 * Settings.Default.scale, 156 * Settings.Default.scale, 338 * Settings.Default.scale, 338 * Settings.Default.scale, segmentStart + q, 1);
+                                }
+                            }
+                            else
+                            {
+                                if (((i >= (DateTime.Now.Hour%12) && i < (_currentProgram[1].Timestamp.Hour%12) && _currentProgram[0].On)) || _currentProgram[1].On)
                                 {
                                     p = redPen;
                                 }
                                 else
                                 {
                                     p = bluePen;
-                                }                               
-                                e.Graphics.DrawArc(p, 147, 156, 338, 338, segmentStart+ (28.0F / subSegments) * q, 28.0F / subSegments);
+                                }
+                                e.Graphics.DrawArc(p, 147 * Settings.Default.scale, 156 * Settings.Default.scale, 338 * Settings.Default.scale, 338 * Settings.Default.scale, segmentStart, 28);
                             }
                         }
+                        double degrees = (30*DateTime.Now.Hour + DateTime.Now.Minute/60.0*28);
+                        double hourRadian;                        
+                        float fCenterX = 316 * Settings.Default.scale;
+                        float fCenterY = 325 * Settings.Default.scale;                        
+                        Color[] colors = new Color[]
+                        {
+                            Color.FromArgb(61, 61,61),
+                            Color.FromArgb(87, 87,87),
+                            Color.FromArgb(124, 124,124),
+                            Color.FromArgb(174, 174,174),                            
+
+                        };                        
+                        for (int q = 0; q < 4; q++)
+                        {
+                            degrees--;
+                            hourRadian = degrees * (Math.PI / 180);
+                            e.Graphics.DrawLine(new Pen(Color.Black, 6 * Settings.Default.scale), fCenterX + (float)(149F * Math.Sin(hourRadian)) * Settings.Default.scale, fCenterY - (float)(149F * Math.Cos(hourRadian)) * Settings.Default.scale, fCenterX + (float)(189F * Math.Sin(hourRadian)) * Settings.Default.scale, fCenterY - (float)(189F * Math.Cos(hourRadian)) * Settings.Default.scale);
+                            e.Graphics.DrawLine(new Pen(colors[q], 6 * Settings.Default.scale), fCenterX + (float) (173F*Math.Sin(hourRadian)) * Settings.Default.scale, fCenterY - (float) (173F*Math.Cos(hourRadian)) * Settings.Default.scale, fCenterX + (float) (189F*Math.Sin(hourRadian)) * Settings.Default.scale, fCenterY - (float) (189F*Math.Cos(hourRadian)) * Settings.Default.scale);
+                        }
+                        degrees = (30 * DateTime.Now.Hour + DateTime.Now.Minute / 60.0 * 28);
+                        hourRadian = degrees * (Math.PI / 180);
+                        e.Graphics.DrawLine(new Pen(Color.White, 6 * Settings.Default.scale), fCenterX + (float)(149F * Math.Sin(hourRadian)) * Settings.Default.scale, fCenterY - (float)(149F * Math.Cos(hourRadian)) * Settings.Default.scale, fCenterX + (float)(189F * Math.Sin(hourRadian)) * Settings.Default.scale, fCenterY - (float)(189F * Math.Cos(hourRadian)) * Settings.Default.scale);
                     }
+
                     else
-                    {                        
-                        e.Graphics.DrawArc(new Pen(Color.FromArgb(128, 128, 128), 16), 135, 144, 362, 362, 0, 360);
+                    {
+                        e.Graphics.DrawArc(new Pen(Color.FromArgb(128, 128, 128), 16 * Settings.Default.scale), 135 * Settings.Default.scale, 144 * Settings.Default.scale, 362 * Settings.Default.scale, 362 * Settings.Default.scale, 0, 360);
                     }
 
                     if (_currentStatus.UserMode == UserModes.Manual)
@@ -238,7 +290,8 @@ namespace DigitalThermostat
             {                
             }
         }
-        
+
+
         private void frmMain_Click(object sender, EventArgs e)
         {
             try
