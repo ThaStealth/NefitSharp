@@ -127,9 +127,6 @@
   <data name="tempUp" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\tempUp.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="whiteSegment" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\whiteSegment.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
   <data name="flame" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\flame.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -165,10 +162,7 @@
   </data>
   <data name="boilerOff" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\boilerOff.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="programOff" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\programOff.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
+  </data> 
   <data name="timerProgramFireplaceActive" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\timerProgramFireplaceActive.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>

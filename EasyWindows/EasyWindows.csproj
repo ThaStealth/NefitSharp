@@ -134,9 +134,7 @@
     <None Include="Resources\timerProgramHolidayInactive.png" />
     <None Include="Resources\timerProgramHolidayActive.png" />
     <None Include="Resources\timerProgramFireplaceInactive.png" />
-    <None Include="Resources\programOff.png" />
     <None Include="Resources\nefit.png" />
-    <None Include="Resources\whiteSegment.png" />
     <None Include="Resources\nefit-logo.png" />
     <None Include="Resources\tempUp.png" />
     <None Include="Resources\tempDown.png" />
