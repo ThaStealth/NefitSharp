@@ -204,6 +204,10 @@ namespace DigitalThermostat
                         for (int q = 0; q < 4; q++)
                         {
                             degrees--;
+                            if (degrees%30 == 0)
+                            {
+                                degrees--;
+                            }
                             hourRadian = degrees * (Math.PI / 180);
                             e.Graphics.DrawLine(new Pen(Color.Black, 6 * Settings.Default.scale), fCenterX + (float)(149F * Math.Sin(hourRadian)) * Settings.Default.scale, fCenterY - (float)(149F * Math.Cos(hourRadian)) * Settings.Default.scale, fCenterX + (float)(189F * Math.Sin(hourRadian)) * Settings.Default.scale, fCenterY - (float)(189F * Math.Cos(hourRadian)) * Settings.Default.scale);
                             e.Graphics.DrawLine(new Pen(colors[q], 6 * Settings.Default.scale), fCenterX + (float) (173F*Math.Sin(hourRadian)) * Settings.Default.scale, fCenterY - (float) (173F*Math.Cos(hourRadian)) * Settings.Default.scale, fCenterX + (float) (189F*Math.Sin(hourRadian)) * Settings.Default.scale, fCenterY - (float) (189F*Math.Cos(hourRadian)) * Settings.Default.scale);
