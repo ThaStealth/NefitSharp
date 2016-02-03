@@ -77,6 +77,7 @@ namespace DigitalThermostat
         {
             _client = new NefitClient(Settings.Default.serial, Settings.Default.accessKey, Settings.Default.password, Settings.Default.debugMode);
             _client.Connect();
+            _client.GetGasusage();
             if (_client.Connected)
             {
                 tmrUpdate.Enabled = true;
@@ -257,7 +258,7 @@ namespace DigitalThermostat
                 for (int i = 0; i < 12; i++)
                 {
                     int hour = i;
-                    if (i < DateTime.Now.Hour && DateTime.Now.Hour < 12)
+                    if (i < DateTime.Now.Hour)
                     {
                         hour += 12;
                     }
@@ -278,18 +279,30 @@ namespace DigitalThermostat
                     }
 
                     bool currentStatus = _currentProgram[0].On;
-                    if (_currentStatus.HedEnabled)
-                    {
-                        currentStatus = _currentStatus.HedDeviceAtHome;
-                    }
+                    //if (_currentStatus.HedEnabled)
+                    //{
+                    //    currentStatus = _currentStatus.HedDeviceAtHome;
+                    //}
 
                     for (int q = 0; q < segments; q++)
                     {
-                        if (i == DateTime.Now.Hour%12 && _currentProgram[1].Timestamp.Hour - DateTime.Now.Hour < 12)
+                        if (hour == DateTime.Now.Hour)
                         {
-                            if (q < Convert.ToInt32(_currentProgram[1].Timestamp.Minute/2.14))
+                            if (_currentProgram[1].Timestamp.Hour - 12 <= hour)
                             {
-                                showRedColor = _currentProgram[1].On;
+                                if (DateTime.Now.Minute/2.14 <= q)
+                                {
+                                    showRedColor = currentStatus;
+                                }                                
+                                else if (q < Convert.ToInt32(_currentProgram[1].Timestamp.Minute/2.14) || _currentProgram[1].Timestamp.Hour - 12 < hour)
+                                {
+                                    //all minutes which have passed need to be in the new color
+                                    showRedColor = _currentProgram[1].On;
+                                }
+                                else
+                                {
+                                    showRedColor = currentStatus;
+                                }
                             }
                             else
                             {
@@ -327,7 +340,7 @@ namespace DigitalThermostat
                             p = bluePen;
                         }
 
-                        e.Graphics.DrawArc(p, 147*Settings.Default.scale, 156*Settings.Default.scale, 338*Settings.Default.scale, 338*Settings.Default.scale, segmentStart + ((28F/segments)*q), (28F/segments)*(q+1));
+                        e.Graphics.DrawArc(p, 147*Settings.Default.scale, 156*Settings.Default.scale, 338*Settings.Default.scale, 338*Settings.Default.scale, segmentStart + ((28F/segments)*q), 28/segments);
                     }
                 }
                 CurrentTimeIndicator(e);
