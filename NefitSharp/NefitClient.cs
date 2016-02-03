@@ -67,6 +67,7 @@ namespace NefitSharp
             _debugMode = debugMode;
             _accessKey = accesskey;
             _encryptionHelper = new NefitEncryption(serial, accesskey, password);            
+            Console.WriteLine(_encryptionHelper.Decrypt("XlvbwD1ZhgjCsALvpVg9TA=="));
         }
 
         #region XMPP Communication
@@ -481,6 +482,29 @@ namespace NefitSharp
             return null;
         }
 
+        public bool SetBoilerMode(bool mode)
+        {
+            try
+            {
+                string newMode = "off";
+                if (mode)
+                {
+                    newMode = "on";
+                }
+
+                bool result = Put("/dhwCircuits/dhwA/dhwOperationManualMode", "{\"value\":'"+newMode+"'}");
+                if (result)
+                {
+                    result = Put("/dhwCircuits/dhwA/dhwOperationClockMode", "{\"value\":'" + newMode + "'}");
+                }
+                return result;
+            }
+            catch (Exception e)
+            {
+                Log(e.Message + " - " + e.StackTrace);
+            }
+            return false;
+        }
         public bool SetUserMode(UserModes newMode)
         {
             try
@@ -610,10 +634,18 @@ namespace NefitSharp
             });
         }
 
-#endregion
+        public async Task<bool> SetBoilerModeAsync(bool newMode)
+        {
+            return await Task.Run(() =>
+            {
+                return SetBoilerMode(newMode);
+            });
+        }
+
+        #endregion
 
 #endif
 
-#endregion
+        #endregion
     }
 }

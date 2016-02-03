@@ -77,7 +77,6 @@ namespace DigitalThermostat
         {
             _client = new NefitClient(Settings.Default.serial, Settings.Default.accessKey, Settings.Default.password, Settings.Default.debugMode);
             _client.Connect();
-            _client.GetGasusage();
             if (_client.Connected)
             {
                 tmrUpdate.Enabled = true;
@@ -461,11 +460,11 @@ namespace DigitalThermostat
                             }
                             else if (_boilerOffZone.Contains(corrPos))
                             {
-                                
+                                _client.SetBoilerMode(false);
                             }
                             else if (_boilerOnZone.Contains(corrPos))
                             {
-
+                                _client.SetBoilerMode(true);
                             }
                             break;
                         case ScreenMode.SetpointScreen:
