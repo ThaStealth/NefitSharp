@@ -123,6 +123,13 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="nefit-logo.ico" />
+    <None Include="Resources\setpointTemperatureUp.png" />
+    <None Include="Resources\setpointTemperatureDown.png" />
+    <None Include="Resources\boileronProgram.png" />
+    <None Include="Resources\boilerOffProgram.png" />
+    <None Include="Resources\return.png" />
+    <None Include="Resources\checkMark.png" />
+    <None Include="Resources\boilerOn.png" />
     <None Include="Resources\boilerOff.png" />
     <None Include="Resources\timerProgramFireplaceActive.png" />
     <None Include="Resources\timerProgramSundayInactive.png" />

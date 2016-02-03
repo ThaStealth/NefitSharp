@@ -63,6 +63,16 @@ namespace DigitalThermostat.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap _return {
+            get {
+                object obj = ResourceManager.GetObject("_return", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap boiler {
             get {
                 object obj = ResourceManager.GetObject("boiler", resourceCulture);
@@ -83,9 +93,49 @@ namespace DigitalThermostat.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap boilerOffProgram {
+            get {
+                object obj = ResourceManager.GetObject("boilerOffProgram", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap boilerOn {
+            get {
+                object obj = ResourceManager.GetObject("boilerOn", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap boileronProgram {
+            get {
+                object obj = ResourceManager.GetObject("boileronProgram", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap celcius {
             get {
                 object obj = ResourceManager.GetObject("celcius", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap checkMark {
+            get {
+                object obj = ResourceManager.GetObject("checkMark", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -146,6 +196,26 @@ namespace DigitalThermostat.Properties {
         internal static System.Drawing.Bitmap nefitLogo {
             get {
                 object obj = ResourceManager.GetObject("nefitLogo", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap setpointTemperatureDown {
+            get {
+                object obj = ResourceManager.GetObject("setpointTemperatureDown", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap setpointTemperatureUp {
+            get {
+                object obj = ResourceManager.GetObject("setpointTemperatureUp", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

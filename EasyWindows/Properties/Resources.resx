@@ -162,7 +162,7 @@
   </data>
   <data name="boilerOff" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\boilerOff.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data> 
+  </data>
   <data name="timerProgramFireplaceActive" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\timerProgramFireplaceActive.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -192,5 +192,26 @@
   </data>
   <data name="timerProgramSundayInactive" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\timerProgramSundayInactive.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="boilerOffProgram" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\boilerOffProgram.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="boilerOn" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\boilerOn.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="boileronProgram" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\boileronProgram.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="checkMark" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\checkMark.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="setpointTemperatureDown" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\setpointTemperatureDown.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="setpointTemperatureUp" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\setpointTemperatureUp.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="_return" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\return.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
 </root>
