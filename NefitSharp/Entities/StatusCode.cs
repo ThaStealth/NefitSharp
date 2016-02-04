@@ -1,6 +1,6 @@
 ﻿namespace NefitSharp.Entities
 {
-    public struct StatusCode
+    public class StatusCode
     {
         public string DisplayCode { get; }
 

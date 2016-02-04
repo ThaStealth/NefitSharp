@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.IO;
+using System.Reflection;
 using System.Windows.Forms;
 using DigitalThermostat.Properties;
 using NefitSharp;
@@ -17,10 +20,11 @@ namespace DigitalThermostat
     {
         private NefitClient _client;
         private UIStatus _currentStatus;
-        private SystemSettings? _settings;
         private ProgramSwitch[] _currentProgram;
         private int _switchBackTicks;
         private double _displaySetpoint;
+        private double _temperatureStep;
+        private bool _temperatureStepDetermined;
 
         private ScreenMode _currentScreenMode;
         private RectangleF _manualProgramClickZone;
@@ -75,7 +79,10 @@ namespace DigitalThermostat
 
         private void Start()
         {
-            _client = new NefitClient(Settings.Default.serial, Settings.Default.accessKey, Settings.Default.password, Settings.Default.debugMode);
+            _temperatureStepDetermined = false;
+            _currentStatus = null;
+            _currentScreenMode = ScreenMode.MainScreen;
+            _client = new NefitClient(Settings.Default.serial, Settings.Default.accessKey, Settings.Default.password);
             _client.Connect();
             if (_client.Connected)
             {
@@ -428,29 +435,29 @@ namespace DigitalThermostat
                     switch (_currentScreenMode)
                     {
                         default:
+                        {
+                            if (_temperatureUpClickZone.Contains(corrPos) || (_temperatureDownClickZone.Contains(corrPos)))
                             {
-                                if (_temperatureUpClickZone.Contains(corrPos) || (_temperatureDownClickZone.Contains(corrPos)))
-                                {
-                                    _displaySetpoint = _currentStatus.TemperatureSetpoint;
-                                    _currentScreenMode = ScreenMode.SetpointScreen;
-                                    _switchBackTicks = 3000;
-                                    Invalidate();
-                                }
-
-                                else if (_manualProgramClickZone.Contains(corrPos) && _currentStatus.UserMode == UserModes.Clock)
-                                {
-                                    _client.SetUserMode(UserModes.Manual);
-                                }
-                                else if (_autoProgramClickZone.Contains(corrPos) && _currentStatus.UserMode == UserModes.Manual)
-                                {
-                                    _client.SetUserMode(UserModes.Clock);
-                                }
-                                else if (_autoProgramClickZone.Contains(corrPos) && _currentStatus.UserMode == UserModes.Clock || (_manualProgramClickZone.Contains(corrPos) && _currentStatus.UserMode == UserModes.Manual))
-                                {
-                                    _currentScreenMode = ScreenMode.BoilerScreen;
-                                    Invalidate();
-                                }
+                                _displaySetpoint = _currentStatus.TemperatureSetpoint;
+                                _currentScreenMode = ScreenMode.SetpointScreen;
+                                _switchBackTicks = 3000;
+                                Invalidate();
                             }
+
+                            else if (_manualProgramClickZone.Contains(corrPos) && _currentStatus.UserMode == UserModes.Clock)
+                            {
+                                _client.SetUserMode(UserModes.Manual);
+                            }
+                            else if (_autoProgramClickZone.Contains(corrPos) && _currentStatus.UserMode == UserModes.Manual)
+                            {
+                                _client.SetUserMode(UserModes.Clock);
+                            }
+                            else if (_autoProgramClickZone.Contains(corrPos) && _currentStatus.UserMode == UserModes.Clock || (_manualProgramClickZone.Contains(corrPos) && _currentStatus.UserMode == UserModes.Manual))
+                            {
+                                _currentScreenMode = ScreenMode.BoilerScreen;
+                                Invalidate();
+                            }
+                        }
                             break;
                         case ScreenMode.BoilerScreen:
                             if (_manualProgramClickZone.Contains(corrPos))
@@ -460,39 +467,39 @@ namespace DigitalThermostat
                             }
                             else if (_boilerOffZone.Contains(corrPos))
                             {
-                                _client.SetBoilerMode(false);
+                                if (_currentStatus.UserMode == UserModes.Clock)
+                                {
+                                    _client.SetHotWaterModeClockProgram(false);
+                                }
+                                else
+                                {
+                                    _client.SetHotWaterModeManualProgram(false);
+                                }
                             }
                             else if (_boilerOnZone.Contains(corrPos))
                             {
-                                _client.SetBoilerMode(true);
+                                if (_currentStatus.UserMode == UserModes.Clock)
+                                {
+                                    _client.SetHotWaterModeClockProgram(true);
+                                }
+                                else
+                                {
+                                    _client.SetHotWaterModeManualProgram(true);
+                                }
                             }
                             break;
                         case ScreenMode.SetpointScreen:
                             _switchBackTicks = 3000;
                             if (_temperatureUpClickZone.Contains(corrPos))
-                            {                                
-                                if (_settings.HasValue)
-                                {
-                                    _displaySetpoint += _settings.Value.EasyTemperatureStep;
-                                }
-                                else
-                                {
-                                    _displaySetpoint += 0.5;
-                                }
+                            {
+                                _displaySetpoint += _temperatureStep;
                                 Invalidate();
                             }
                             else if (_temperatureDownClickZone.Contains(corrPos))
-                            {                                
-                                if (_settings.HasValue)
-                                {
-                                    _displaySetpoint -= _settings.Value.EasyTemperatureStep;
-                                }
-                                else
-                                {
-                                    _displaySetpoint -= 0.5;
-                                }
+                            {
+                                _displaySetpoint -= _temperatureStep;
                                 Invalidate();
-                            }                                                       
+                            }
                             break;
                     }
                 }
@@ -506,6 +513,25 @@ namespace DigitalThermostat
             }
         }
 
+        private void Log(string txt)
+        {
+            try
+            {
+#if !DEBUG
+                if (_debugMode)
+#endif
+                {
+                    Debug.WriteLine(DateTime.Now.ToString("HH:mm:ss") + txt);
+                    StreamWriter writer = new StreamWriter(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\log.txt", true);
+                    writer.WriteLine(DateTime.Now.ToString("HH:mm:ss") + txt);
+                    writer.Close();
+                }
+            }
+            catch
+            {
+
+            }
+        }
         private async void tmrUpdate_Tick(object sender, EventArgs e)
         {
             try
@@ -528,17 +554,25 @@ namespace DigitalThermostat
                     if (_client.AuthenticationError)
                     {
                         tmrUpdate.Stop();
-                        MessageBox.Show("Authentication error, please recheck your credentials", "Authentication error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        MessageBox.Show(@"Authentication error, please recheck your credentials", @"Authentication error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         settingsToolStripMenuItem_Click(this, new EventArgs());
                     }
 
-                    if (_settings == null)
+                    if (!_temperatureStepDetermined)
                     {
-                        _settings = await _client.GetSystemSettingsAsync();
+                        _temperatureStep = _client.EasyTemperatureStep();
+                        if (!double.IsNaN(_temperatureStep))
+                        {
+                            _temperatureStepDetermined = true;
+                        }
+                        else
+                        {
+                            _temperatureStep = 0.5;
+                        }
                     }
                     if (_currentProgram == null)
                     {
-                        _currentProgram = await _client.GetCurrentAndNextSwitchAsync();
+                      //  _currentProgram = await _client.GetCurrentAndNextSwitchAsync();
                     }
                     UIStatus stat = await _client.GetUIStatusAsync();
                     if (stat != null)

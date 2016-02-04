@@ -1,10 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Net.Mime;
-using System.Reflection;
-using System.Text;
 using System.Threading;
 #if !NET20 && !NET35
 using System.Threading.Tasks;
@@ -17,35 +13,59 @@ using Newtonsoft.Json;
 
 namespace NefitSharp
 {
+
+    public delegate void ExceptionDelegate(Exception e);
+
+    public delegate void XMLMessageDelegate(string text);
+
     public class NefitClient
     {
         private const string cHost = "wa2-mz36-qrmzh6.bosch.de";
         private const string cAccesskeyPrefix = "Ct7ZR03b_";
+
         private const string cRrcContactPrefix = "rrccontact_";
         private const string cRrcGatewayPrefix = "rrcgateway_";
-
-        private XmppClientConnection _client;
-        private readonly NefitEncryption _encryptionHelper;
-        private readonly string _accessKey;
-        private readonly string _serial;
-
-        private NefitHTTPResponse _lastMessage;
-        private readonly object _lockObj;
-        private object _communicationLock;
-        private bool _authenticationError;
-        private bool _readyForCommands;
-
-        private bool _debugMode;
 
         private const int cRequestTimeout = 5*1000;
         private const int cCheckInterval = 100;
         private const int cKeepAliveInterval = 30*1000;
 
+        private XmppClientConnection _client;
+        private readonly NefitEncryption _encryptionHelper;
+        private readonly string _accessKey;
+
+        private readonly string _serial;
+        private NefitHTTPResponse _lastMessage;
+        private readonly object _lockObj;
+        private readonly object _communicationLock;
+        private bool _serialAccessKeyValid;
+        private bool _passwordValid;
+        private bool _readyForCommands;
+
+        /// <summary>        /// Subscribe to this event if you want to get notified if an internal exception occurs.        /// </summary>        
+        public event ExceptionDelegate ExceptionEvent = delegate {
+        }
+            ;
+
+        /// <summary>        /// Indicates if there was an general authentication error                /// </summary>        
         public bool AuthenticationError
         {
-            get { return _authenticationError; }
+            get { return !_serialAccessKeyValid || !_passwordValid; }
         }
 
+        /// <summary>        /// Indicates if the used serial and access keys are valid        /// </summary> 
+        public bool SerialAccessKeyValid
+        {
+            get { return _serialAccessKeyValid; }
+        }
+
+        /// <summary>        /// Indicates if the used password is valid        /// </summary>     
+        public bool PasswordValid
+        {
+            get { return _passwordValid; }
+        }
+
+        /// <summary>        /// Indicates if the connection has been successfully established        ///  Use <see cref="AuthenticationError"/>  to check if the authentication is also valid.        /// </summary>   
         public bool Connected
         {
             get
@@ -58,20 +78,28 @@ namespace NefitSharp
             }
         }
 
-        public NefitClient(string serial, string accesskey, string password,bool debugMode =false)
+        /// <summary>      
+        ///  Constructor of the NefitClient     
+        /// </summary>      
+        ///  <param name="serial">The serial of your Nefit Easy (see your manual)</param>    
+        ///  <param name="accesskey">The serial of your Nefit Easy (see your manual)</param>   
+        ///  <param name="password">The serial of your Nefit Easy (which you configured in the App)</param>   
+        public NefitClient(string serial, string accesskey, string password)
         {
             _lockObj = new object();
             _communicationLock = new object();
             _lastMessage = null;
             _serial = serial;
-            _debugMode = debugMode;
             _accessKey = accesskey;
-            _encryptionHelper = new NefitEncryption(serial, accesskey, password);            
-            Console.WriteLine(_encryptionHelper.Decrypt("XlvbwD1ZhgjCsALvpVg9TA=="));
+            _encryptionHelper = new NefitEncryption(serial, accesskey, password);
         }
 
-        #region XMPP Communication
+        #region XMPP Communication       
 
+        /// <summary>        
+        /// Starts the communication to the Bosch server backend with the credentials provided in the constructor        
+        /// </summary>     
+        ///  <returns>When returns false, check <see cref="PasswordValid"/> and <see cref="SerialAccessKeyValid"/> to see if there was an authentication problem</returns>  
         public bool Connect()
         {
             if (_client != null)
@@ -80,7 +108,8 @@ namespace NefitSharp
             }
             try
             {
-                _authenticationError = false;
+                _serialAccessKeyValid = true;
+                _passwordValid = true;
                 _readyForCommands = false;
                 _client = new XmppClientConnection(cHost);
                 _client.Open(cRrcContactPrefix + _serial, cAccesskeyPrefix + _accessKey);
@@ -95,18 +124,21 @@ namespace NefitSharp
             }
             catch (Exception e)
             {
-                Debug.WriteLine(e.Message + " - " + e.StackTrace);
+                ExceptionEvent(e);
             }
-            while (!Connected && !_authenticationError)
+            while (!Connected && SerialAccessKeyValid)
             {
                 Thread.Sleep(10);
+            }
+            ActiveProgram();
+            //if (GetStatus() == null)         
+            {
+                //  Disconnect	();
             }
             return Connected;
         }
 
-
-
-
+        /// <summary>        /// Disconnects from the Bosch server        /// </summary>     
         public void Disconnect()
         {
             try
@@ -121,13 +153,12 @@ namespace NefitSharp
             }
             catch (Exception e)
             {
-                Debug.WriteLine(e.Message + " - " + e.StackTrace);
+                ExceptionEvent(e);
             }
         }
 
         private void XmppRead(object sender, string xml)
         {
-          //  Log("XML<< " + xml);
             if (!xml.StartsWith("<stream"))
             {
                 try
@@ -144,13 +175,13 @@ namespace NefitSharp
                     }
                     else if (xmlDoc.DocumentElement != null && (xmlDoc.DocumentElement.Name == "failure" && xmlDoc.FirstChild.FirstChild.Name == "not-authorized"))
                     {
-                        _authenticationError = true;
+                        _serialAccessKeyValid = false;
                         Disconnect();
                     }
                 }
-                catch
+                catch (Exception e)
                 {
-                    Debug.Write("XML Parsing error");
+                    ExceptionEvent(e);
                     Disconnect();
                 }
             }
@@ -158,8 +189,6 @@ namespace NefitSharp
 
         private void XmppWrite(object sender, string xml)
         {
-           // Log("XML>> " + xml);
-            
             if (!xml.StartsWith("<stream"))
             {
                 try
@@ -171,31 +200,11 @@ namespace NefitSharp
                         _readyForCommands = true;
                     }
                 }
-                catch
+                catch (Exception e)
                 {
-                    Debug.Write("XML Parsing error");
+                    ExceptionEvent(e);
                     Disconnect();
                 }
-            }
-        }
-
-        private void Log(string txt)
-        {
-            try
-            {
-#if !DEBUG
-                if (_debugMode)
-#endif
-                {
-                    Debug.WriteLine(DateTime.Now.ToString("HH:mm:ss") + txt);
-                    StreamWriter writer = new StreamWriter(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\log.txt", true);
-                    writer.WriteLine(DateTime.Now.ToString("HH:mm:ss") + txt);
-                    writer.Close();
-                }
-            }
-            catch
-            {
-                
             }
         }
 
@@ -206,7 +215,6 @@ namespace NefitSharp
                 try
                 {
                     NefitHTTPRequest request = new NefitHTTPRequest(url, _client.MyJID, cRrcGatewayPrefix + _serial + "@" + cHost, _encryptionHelper.Encrypt(data));
-                    Log(">> " + request);
                     _client.Send(request.ToString());
                     int timeout = cRequestTimeout;
                     while (timeout > 0)
@@ -226,7 +234,7 @@ namespace NefitSharp
                 }
                 catch (Exception e)
                 {
-                    Log(e.Message + " - " + e.StackTrace);
+                    ExceptionEvent(e);
                 }
                 return false;
             }
@@ -239,7 +247,6 @@ namespace NefitSharp
                 try
                 {
                     NefitHTTPRequest request = new NefitHTTPRequest(url, _client.MyJID, cRrcGatewayPrefix + _serial + "@" + cHost);
-                    Log(">> "+request);
                     _client.Send(request.ToString());
                     int timeout = cRequestTimeout;
                     while (timeout > 0)
@@ -248,11 +255,10 @@ namespace NefitSharp
                         {
                             if (_lastMessage != null)
                             {
-                                
                                 string decrypted = _encryptionHelper.Decrypt(_lastMessage.Payload);
-                                Log("<< " + decrypted);
                                 if (decrypted.StartsWith("{"))
                                 {
+
                                     NefitJson<T> obj = JsonConvert.DeserializeObject<NefitJson<T>>(decrypted);
                                     _lastMessage = null;
                                     if (obj != null)
@@ -262,7 +268,7 @@ namespace NefitSharp
                                 }
                                 else
                                 {
-                                    _authenticationError = true;
+                                    _passwordValid = false;
                                 }
                                 timeout = 0;
                             }
@@ -271,97 +277,262 @@ namespace NefitSharp
                         Thread.Sleep(cCheckInterval);
                     }
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
-                    Log(e.Message + " - " + e.StackTrace);
+                    ExceptionEvent(e);
                 }
                 return default(T);
             }
         }
 
-#endregion
+        #endregion
 
-#region Commands
+        #region Commands 
 
-#region Sync Methods
+        #region Sync Methods    
 
-        public UserProgram GetProgram()
+        public int ActiveProgram()
         {
             try
             {
-                for (int i = 0; i < 5; i++)
-                {
-                    string get = Get<string>("/dhwCircuits/dhwA/dhwNextSwitchpoint");
-                }
-                int activeProgram = Get<int>("/ecus/rrc/userprogram/activeprogram");
-                bool preheating = Get<string>("/ecus/rrc/userprogram/fireplacefunction") == "on";
-                bool fireplaceFunction = Get<string>("/ecus/rrc/userprogram/preheating") == "on";
-                string switchpointName1 = Get<string>("/ecus/rrc/userprogram/userswitchpointname1");
-                string switchpointName2 = Get<string>("/ecus/rrc/userprogram/userswitchpointname2");
-                NefitProgram[] program0 = Get<NefitProgram[]>("/ecus/rrc/userprogram/program0");
-                NefitProgram[] program1 = Get<NefitProgram[]>("/ecus/rrc/userprogram/program1");
-                NefitProgram[] program2 = Get<NefitProgram[]>("/ecus/rrc/userprogram/program2");
-                if (program0 != null && program1 != null && program2 != null)
-                {
-                    return new UserProgram(program0, program1, program2, activeProgram, fireplaceFunction, preheating, switchpointName1, switchpointName2);
-                }
+                return Get<int>("/ecus/rrc/userprogram/activeprogram");
             }
             catch (Exception e)
             {
-                Log(e.Message + " - " + e.StackTrace);
+                ExceptionEvent(e);
             }
-            return null;
+            return -1;
         }
 
-        public FullStatus GetStatus()
+        public ProgramSwitch[] Program(int index)
         {
             try
             {
-                NefitStatus status = Get<NefitStatus>("/ecus/rrc/uiStatus");
-                if (status != null)
+                if (index >= 0 && index < 3)
                 {
-
-                    double outdoor = Get<double>("/system/sensors/temperatures/outdoor_t1");
-                    string serviceStatus = Get<string>("/gateway/remote/servicestate");
-                    bool ignition = Get<string>("/ecus/rrc/pm/ignition/status") == "true";
-                    bool refillNeeded = Get<string>("/ecus/rrc/pm/refillneeded/status") == "true";
-                    bool closingValve = Get<string>("/ecus/rrc/pm/closingvalve/status") == "true";
-                    bool shortTapping = Get<string>("/ecus/rrc/pm/shorttapping/status") == "true";
-                    bool systemLeaking = Get<string>("/ecus/rrc/pm/systemleaking/status") == "true";
-                    double systemPressure = Get<double>("/system/appliance/systemPressure");
-                    double chSupplyTemperature = Get<double>("/heatingCircuits/hc1/actualSupplyTemperature");
-                    string operationMode = Get<string>("/heatingCircuits/hc1/operationMode");
-                    string displayCode = Get<string>("/system/appliance/displaycode");
-                    string causeCode = Get<string>("/system/appliance/causecode");
-                    if (!string.IsNullOrEmpty(displayCode) && !string.IsNullOrEmpty(causeCode))
+                    NefitProgram[] program0 = Get<NefitProgram[]>("/ecus/rrc/userprogram/program" + index);
+                    if (program0 != null)
                     {
-                        return new FullStatus(status, serviceStatus, outdoor, operationMode, refillNeeded, ignition, closingValve, shortTapping, systemLeaking, systemPressure, chSupplyTemperature, new StatusCode(displayCode, Convert.ToInt32(causeCode)));
+                        return Utils.ParseProgram(program0);
                     }
                 }
             }
             catch (Exception e)
             {
-                Log(e.Message + " - " + e.StackTrace);
+                ExceptionEvent(e);
             }
             return null;
         }
 
-        public ProgramSwitch[] GetCurrentAndNextSwitch()
+        public string SwitchpointName(int nameIndex)
         {
             try
             {
-                NefitSwitch[] lat = Get<NefitSwitch[]>("/dhwCircuits/dhwA/dhwCurrentSwitchpoint");
-                NefitSwitch[] lon = Get<NefitSwitch[]>("/dhwCircuits/dhwA/dhwNextSwitchpoint");
-                return new ProgramSwitch[] {new ProgramSwitch(lat[0]), new ProgramSwitch(lon[0])};
+                if (nameIndex >= 1 && nameIndex <= 2)
+                {
+                    return Get<string>("/ecus/rrc/userprogram/userswitchpointname" + nameIndex);
+                }
             }
             catch (Exception e)
             {
-                Log(e.Message + " - " + e.StackTrace);
+                ExceptionEvent(e);
             }
             return null;
         }
 
-        public Location? GetLocation()
+        public bool FireplaceFunctionActive()
+        {
+            try
+            {
+                return Get<string>("/ecus/rrc/userprogram/preheating") == "on";
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return false;
+        }
+
+        public bool PreheatingActive()
+        {
+            try
+            {
+                return Get<string>("/ecus/rrc/userprogram/preheating") == "on";
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return false;
+        }
+
+        public double OutdoorTemperature()
+        {
+            try
+            {
+                return Get<double>("/system/sensors/temperatures/outdoor_t1");
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return Double.NaN;
+        }
+
+        public string EasyServiceStatus()
+        {
+            try
+            {
+                return Get<string>("/gateway/remote/servicestate");
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return null;
+        }
+
+        public bool IgnitionStatus()
+        {
+            try
+            {
+                return Get<string>("/ecus/rrc/pm/ignition/status") == "true";
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return false;
+        }
+
+        public bool RefillNeededStatus()
+        {
+            try
+            {
+                return Get<string>("/ecus/rrc/pm/refillneeded/status") == "true";
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return false;
+        }
+
+        public bool ClosingValveStatus()
+        {
+            try
+            {
+                return Get<string>("/ecus/rrc/pm/closingvalve/status") == "true";
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return false;
+        }
+
+        public bool ShortTappingStatus()
+        {
+            try
+            {
+                return Get<string>("/ecus/rrc/pm/shorttapping/status") == "true";
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return false;
+        }
+
+        public bool SystemLeakingStatus()
+        {
+            try
+            {
+                return Get<string>("/ecus/rrc/pm/systemleaking/status") == "true";
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return false;
+        }
+
+        public double SystemPressure()
+        {
+            try
+            {
+                return Get<double>("/system/appliance/systemPressure");
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return Double.NaN;
+        }
+
+        public double CentralHeatingSupplyTemperature()
+        {
+            try
+            {
+                return Get<double>("/heatingCircuits/hc1/actualSupplyTemperature");
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return Double.NaN;
+        }
+
+        public StatusCode GetStatusCode()
+        {
+            try
+            {
+                string displayCode = Get<string>("/system/appliance/displaycode");
+                string causeCode = Get<string>("/system/appliance/causecode");
+                return new StatusCode(displayCode, Convert.ToInt32(causeCode));
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return null;
+        }
+
+        public ProgramSwitch GetCurrentSwitchPoint()
+        {
+            try
+            {
+                NefitSwitch[] sp = Get<NefitSwitch[]>("/dhwCircuits/dhwA/dhwCurrentSwitchpoint");
+                if (sp != null)
+                {
+                    return new ProgramSwitch(sp[0]);
+                }
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return null;
+        }
+
+        public ProgramSwitch GetNextSwitchPoint()
+        {
+            try
+            {
+                NefitSwitch[] sp = Get<NefitSwitch[]>("/dhwCircuits/dhwA/dhwNextSwitchpoint");
+                if (sp != null)
+                {
+                    return new ProgramSwitch(sp[0]);
+                }
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return null;
+        }
+
+        public Location GetLocation()
         {
             try
             {
@@ -371,13 +542,13 @@ namespace NefitSharp
             }
             catch (Exception e)
             {
-                Log(e.Message + " - " + e.StackTrace);
+                ExceptionEvent(e);
             }
             return null;
         }
 
         public GasSample[] GetGasusage()
-        {            
+        {
             bool hasValidSamples = true;
             int currentPage = 1;
             List<GasSample> gasSamples = new List<GasSample>();
@@ -392,7 +563,7 @@ namespace NefitSharp
                         {
                             if (sample.d != "255-256-65535")
                             {
-                                gasSamples.Add(new GasSample(Convert.ToDateTime(sample.d), sample.hw / 10.0, sample.ch / 10.0));
+                                gasSamples.Add(new GasSample(Convert.ToDateTime(sample.d), sample.hw/10.0, sample.ch/10.0));
                             }
                             else
                             {
@@ -410,7 +581,7 @@ namespace NefitSharp
             }
             catch (Exception e)
             {
-                Log(e.Message + " - " + e.StackTrace);
+                ExceptionEvent(e);
             }
             return gasSamples.ToArray();
         }
@@ -427,84 +598,265 @@ namespace NefitSharp
             }
             catch (Exception e)
             {
-                Log(e.Message + " - " + e.StackTrace);
+                ExceptionEvent(e);
             }
             return null;
         }
 
-        public Information? GetInformation()
+        public string[] OwnerInfo()
         {
             try
             {
-
                 string owner = Get<string>("/ecus/rrc/personaldetails");
-                string[] ownerInfo = owner.Split(';');
-                string installer = Get<string>("/ecus/rrc/installerdetails");
-                string[] installerInfo = installer.Split(';');
-                string easySerial = Get<string>("/gateway/serialnumber");
-                string easyUpdate = Get<string>("/gateway/update/strategy");
-                string easyFirmware = Get<string>("/gateway/versionFirmware");
-                string easyHardware = Get<string>("/gateway/versionHardware");
-                string easyUuid = Get<string>("/gateway/uuid");
-                string cvSerial = Get<string>("/system/appliance/serialnumber");
-                string cvVersion = Get<string>("/system/appliance/version");
-                string cvBurner = Get<string>("/system/interfaces/ems/brandbit");
-                return new Information(ownerInfo[0], ownerInfo[1], ownerInfo[2], installerInfo[0], installerInfo[1], installerInfo[2],
-                    easySerial, easyUpdate, easyFirmware, easyHardware, easyUuid, cvSerial, cvVersion, cvBurner);
-            }
-            catch (Exception e)
-            {
-                Log(e.Message + " - " + e.StackTrace);
-            }
-            return null;
-        }
-
-        public SystemSettings? GetSystemSettings()
-        {
-            try
-            {
-                bool desinfect = Get<string>("/dhwCircuits/dhwA/thermaldesinfect/state") == "on";
-
-                int nextTermalTime = Get<int>("/dhwCircuits/dhwA/thermaldesinfect/time");
-                string nextTermalDay = Get<string>("/dhwCircuits/dhwA/thermaldesinfect/weekday");
-                string sensitivity = Get<string>("/ecus/rrc/pirSensitivity");
-                string tempStep = Get<string>("/ecus/rrc/temperaturestep");
-                double adjustment = Get<double>("/heatingCircuits/hc1/temperatureAdjustment");
-                if (sensitivity != null && nextTermalDay != null)
+                if (owner != null)
                 {
-                    return new SystemSettings(desinfect, Utils.GetNextDate(nextTermalDay, nextTermalTime), sensitivity, Utils.StringToDouble(tempStep), adjustment);
+                    return owner.Split(';');
                 }
             }
             catch (Exception e)
             {
-                Log(e.Message + " - " + e.StackTrace);
+                ExceptionEvent(e);
             }
             return null;
         }
 
-        public bool SetBoilerMode(bool mode)
+        public string[] InstallerInfo()
+        {
+            try
+            {
+                string owner = Get<string>("/ecus/rrc/installerdetails");
+                if (owner != null)
+                {
+                    return owner.Split(';');
+                }
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return null;
+        }
+
+        public string EasySerial()
+        {
+            try
+            {
+                return Get<string>("/gateway/serialnumber");
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return null;
+        }
+
+        public string EasyFirmware()
+        {
+            try
+            {
+                return Get<string>("/gateway/versionFirmware");
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return null;
+        }
+
+        public string EasyHardware()
+        {
+            try
+            {
+                return Get<string>("/gateway/versionHardware");
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return null;
+        }
+
+        public string EasyUUID()
+        {
+            try
+            {
+                return Get<string>("/gateway/uuid");
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return null;
+        }
+
+        /// <summary>       
+        /// Needs to be converted into an enum   
+        /// </summary>       
+        /// <returns></returns>
+        public string EasyUpdateStrategy()
+        {
+
+
+            try
+            {
+                return Get<string>("/gateway/update/strategy");
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return null;
+        }
+
+        public string CVSerial()
+        {
+            try
+            {
+                return Get<string>("/system/appliance/serialnumber");
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return null;
+        }
+
+        public string CVVersion()
+        {
+            try
+            {
+                return Get<string>("/system/appliance/version");
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return null;
+        }
+
+        public string CVBurnerMake()
+        {
+            try
+            {
+                return Get<string>("/system/interfaces/ems/brandbit");
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return null;
+        }
+
+        public bool ThermalDesinfectEnabled()
+        {
+            try
+            {
+                return Get<string>("/dhwCircuits/dhwA/thermaldesinfect/state") == "on";
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return false;
+        }
+
+        public DateTime NextThermalDesinfect()
+        {
+            try
+            {
+                int nextTermalTime = Get<int>("/dhwCircuits/dhwA/thermaldesinfect/time");
+                string nextTermalDay = Get<string>("/dhwCircuits/dhwA/thermaldesinfect/weekday");
+                if (nextTermalDay != null)
+                {
+                    return Utils.GetNextDate(nextTermalDay, nextTermalTime);
+                }
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return new DateTime();
+        }
+
+        public string EasySensitivity()
+        {
+            try
+            {
+                return Get<string>("/ecus/rrc/pirSensitivity");
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return null;
+        }
+
+        public double EasyTemperatureStep()
+        {
+            try
+            {
+                string sens = Get<string>("/ecus/rrc/temperaturestep");
+                if (sens != null)
+                {
+                    return Utils.StringToDouble(sens);
+                }
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return Double.NaN;
+        }
+
+        public double EasyTemperatureOffset()
+        {
+            try
+            {
+                return Get<double>("/heatingCircuits/hc1/temperatureAdjustment");
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return Double.NaN;
+        }
+
+        public bool SetHotWaterModeClockProgram(bool onOff)
         {
             try
             {
                 string newMode = "off";
-                if (mode)
+                if (onOff)
                 {
                     newMode = "on";
                 }
-
-                bool result = Put("/dhwCircuits/dhwA/dhwOperationManualMode", "{\"value\":'"+newMode+"'}");
-                if (result)
-                {
-                    result = Put("/dhwCircuits/dhwA/dhwOperationClockMode", "{\"value\":'" + newMode + "'}");
-                }
-                return result;
+                return Put("/dhwCircuits/dhwA/dhwOperationClockMode", "{\"value\":'" + newMode + "'}");
             }
             catch (Exception e)
             {
-                Log(e.Message + " - " + e.StackTrace);
+                ExceptionEvent(e);
             }
             return false;
         }
+
+        public bool SetHotWaterModeManualProgram(bool onOff)
+        {
+            try
+            {
+                string newMode = "off";
+                if (onOff)
+                {
+                    newMode = "on";
+                }
+                return Put("/dhwCircuits/dhwA/dhwOperationManualMode", "{\"value\":'" + newMode + "'}");
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return false;
+        }
+
         public bool SetUserMode(UserModes newMode)
         {
             try
@@ -513,7 +865,7 @@ namespace NefitSharp
             }
             catch (Exception e)
             {
-                Log(e.Message + " - " + e.StackTrace);
+                ExceptionEvent(e);
             }
             return false;
         }
@@ -535,114 +887,337 @@ namespace NefitSharp
             }
             catch (Exception e)
             {
-                Log(e.Message + " - " + e.StackTrace);
+                ExceptionEvent(e);
             }
             return false;
         }
 
         #endregion
-        
+
 #if !NET20 && !NET35
 
-#region Async commands
+        #region Async commands    
 
         public async Task ConnectAsync()
         {
             await Task.Run(() =>
             {
                 Connect();
-            });
+            }
+                )
+                ;
         }
 
-        public async Task<UserProgram> GetProgramAsync()
+        public async Task<int> ActiveProgramAsync()
         {
-            return await Task.Run(() =>
-            {
-                return GetProgram();
-            });
+            return await Task.Run(() => {
+                                            return ActiveProgram();
+            }
+                );
         }
 
-        public async Task<ProgramSwitch[]> GetCurrentAndNextSwitchAsync()
+        public async Task<ProgramSwitch[]> ProgramAsync(int index)
         {
-            return await Task.Run(() =>
-            {
-                return GetCurrentAndNextSwitch();
-            });
+            return await Task.Run(() => {
+                                            return Program(index);
+            }
+                );
         }
 
-        public async Task<Information?> GetInformationAsync()
+        public async Task<string> SwitchpointNameAsync(int nameIndex)
         {
-            return await Task.Run(() =>
-            {
-                return GetInformation();
-            });
+            return await Task.Run(() => {
+                                            return SwitchpointName(nameIndex);
+            }
+                );
         }
 
-        public async Task<UIStatus> GetUIStatusAsync()
+        public async Task<bool> FireplaceFunctionActiveAsync()
         {
-            return await Task.Run(() =>
-            {
-                return GetUIStatus();
-            });
+            return await Task.Run(() => {
+                                            return FireplaceFunctionActive();
+            }
+                );
         }
 
-        public async Task<FullStatus> GetFullStatusAsync()
+        public async Task<bool> PreheatingActiveAsync()
         {
-            return await Task.Run(() =>
-            {
-                return GetStatus();
-            });
+            return await Task.Run(() => {
+                                            return PreheatingActive();
+            }
+                );
         }
 
-        public async Task<SystemSettings?> GetSystemSettingsAsync()
+        public async Task<double> OutdoorTemperatureAsync()
         {
-            return await Task.Run(() =>
-            {
-                return GetSystemSettings();
-            });
+            return await Task.Run(() => {
+                                            return OutdoorTemperature();
+            }
+                );
         }
 
-        public async Task<Location?> GetLocationAsync()
+        public async Task<string> EasyServiceStatusAsync()
         {
-            return await Task.Run(() =>
-            {
-                return GetLocation();
-            });
+            return await Task.Run(() => {
+                                            return EasyServiceStatus();
+            }
+                );
+        }
+
+        public async Task<bool> IgnitionStatusAsync()
+        {
+            return await Task.Run(() => {
+                                            return IgnitionStatus();
+            }
+                );
+        }
+
+        public async Task<bool> RefillNeededStatusAsync()
+        {
+            return await Task.Run(() => {
+                                            return RefillNeededStatus();
+            }
+                );
+        }
+
+        public async Task<bool> ClosingValveStatusAsync()
+        {
+            return await Task.Run(() => {
+                                            return ClosingValveStatus();
+            }
+                );
+        }
+
+        public async Task<bool> ShortTappingStatusAsync()
+        {
+            return await Task.Run(() => {
+                                            return ShortTappingStatus();
+            }
+                );
+        }
+
+        public async Task<bool> SystemLeakingStatusAsync()
+        {
+            return await Task.Run(() => {
+                                            return SystemLeakingStatus();
+            }
+                );
+        }
+
+        public async Task<double> SystemPressureAsync()
+        {
+            return await Task.Run(() => {
+                                            return SystemPressure();
+            }
+                );
+        }
+
+        public async Task<double> CentralHeatingSupplyTemperatureAsync()
+        {
+            return await Task.Run(() => {
+                                            return CentralHeatingSupplyTemperature();
+            }
+                );
+        }
+
+        public async Task<StatusCode> GetStatusCodeAsync()
+        {
+            return await Task.Run(() => {
+                                            return GetStatusCode();
+            }
+                );
+        }
+
+        public async Task<ProgramSwitch> GetCurrentSwitchPointAsync()
+        {
+            return await Task.Run(() => {
+                                            return GetCurrentSwitchPoint();
+            }
+                );
+        }
+
+        public async Task<ProgramSwitch> GetNextSwitchPointAsync()
+        {
+            return await Task.Run(() => {
+                                            return GetNextSwitchPoint();
+            }
+                );
+        }
+
+        public async Task<Location> GetLocationAsync()
+        {
+            return await Task.Run(() => {
+                                            return GetLocation();
+            }
+                );
         }
 
         public async Task<GasSample[]> GetGasusageAsync()
         {
-            return await Task.Run(() =>
-            {
-                return GetGasusage();
-            });
+            return await Task.Run(() => {
+                                            return GetGasusage();
+            }
+                );
         }
 
-        public async Task<bool> SetTemperatureAsync(double temperature)
+        public async Task<UIStatus> GetUIStatusAsync()
         {
-            return await Task.Run(() =>
-            {
-                return SetTemperature(temperature);
-            });
+            return await Task.Run(() => {
+                                            return GetUIStatus();
+            }
+                );
+        }
+
+        public async Task<string[]> OwnerInfoAsync()
+        {
+            return await Task.Run(() => {
+                                            return OwnerInfo();
+            }
+                );
+        }
+
+        public async Task<string[]> InstallerInfoAsync()
+        {
+            return await Task.Run(() => {
+                                            return InstallerInfo();
+            }
+                );
+        }
+
+        public async Task<string> EasySerialAsync()
+        {
+            return await Task.Run(() => {
+                                            return EasySerial();
+            }
+                );
+        }
+
+        public async Task<string> EasyFirmwareAsync()
+        {
+            return await Task.Run(() => {
+                                            return EasyFirmware();
+            }
+                );
+        }
+
+        public async Task<string> EasyHardwareAsync()
+        {
+            return await Task.Run(() => {
+                                            return EasyHardware();
+            }
+                );
+        }
+
+        public async Task<string> EasyUUIDAsync()
+        {
+            return await Task.Run(() => {
+                                            return EasyUUID();
+            }
+                );
+        }
+
+        public async Task<string> EasyUpdateStrategyAsync()
+        {
+            return await Task.Run(() => {
+                                            return EasyUpdateStrategy();
+            }
+                );
+        }
+
+        public async Task<string> CVSerialAsync()
+        {
+            return await Task.Run(() => {
+                                            return CVSerial();
+            }
+                );
+        }
+
+        public async Task<string> CVVersionAsync()
+        {
+            return await Task.Run(() => {
+                                            return CVVersion();
+            }
+                );
+        }
+
+        public async Task<string> CVBurnerMakeAsync()
+        {
+            return await Task.Run(() => {
+                                            return CVBurnerMake();
+            }
+                );
+        }
+
+        public async Task<bool> ThermalDesinfectEnabledAsync()
+        {
+            return await Task.Run(() => {
+                                            return ThermalDesinfectEnabled();
+            }
+                );
+        }
+
+        public async Task<DateTime> NextThermalDesinfectAsync()
+        {
+            return await Task.Run(() => {
+                                            return NextThermalDesinfect();
+            }
+                );
+        }
+
+        public async Task<string> EasySensitivityAsync()
+        {
+            return await Task.Run(() => {
+                                            return EasySensitivity();
+            }
+                );
+        }
+
+        public async Task<double> EasyTemperatureStepAsync()
+        {
+            return await Task.Run(() => {
+                                            return EasyTemperatureStep();
+            }
+                );
+        }
+
+        public async Task<double> EasyTemperatureOffsetAsync()
+        {
+            return await Task.Run(() => {
+                                            return EasyTemperatureOffset();
+            }
+                );
+        }
+
+        public async Task<bool> SetHotWaterModeClockProgramAsync(bool onOff)
+        {
+            return await Task.Run(() => {
+                                            return SetHotWaterModeClockProgram(onOff);
+            }
+                );
+        }
+
+        public async Task<bool> SetHotWaterModeManualProgramAsync(bool onOff)
+        {
+            return await Task.Run(() => {
+                                            return SetHotWaterModeManualProgram(onOff);
+            }
+                );
         }
 
         public async Task<bool> SetUserModeAsync(UserModes newMode)
         {
-            return await Task.Run(() =>
-            {
-                return SetUserMode(newMode);
-            });
+            return await Task.Run(() => {
+                                            return SetUserMode(newMode);
+            }
+                );
         }
 
-        public async Task<bool> SetBoilerModeAsync(bool newMode)
+        public async Task<bool> SetTemperatureAsync(double temperature)
         {
-            return await Task.Run(() =>
-            {
-                return SetBoilerMode(newMode);
-            });
+            return await Task.Run(() => { return SetTemperature(temperature); });
         }
 
-        #endregion
+        # endregion
 
 #endif
 

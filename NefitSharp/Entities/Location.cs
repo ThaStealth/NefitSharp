@@ -1,6 +1,6 @@
 ﻿namespace NefitSharp.Entities
 {
-    public struct Location
+    public class Location
     {
         public double Latitude { get; }
 

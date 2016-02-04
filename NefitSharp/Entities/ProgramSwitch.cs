@@ -3,7 +3,7 @@ using NefitSharp.Entities.Internal;
 
 namespace NefitSharp.Entities
 {
-    public struct ProgramSwitch
+    public class ProgramSwitch
     {
         public DateTime Timestamp { get; }
 

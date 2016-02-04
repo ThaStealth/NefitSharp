@@ -54,7 +54,6 @@
     <Compile Include="Entities\ClockProgram.cs" />
     <Compile Include="Entities\ControlMode.cs" />
     <Compile Include="Entities\GasSample.cs" />
-    <Compile Include="Entities\Information.cs" />
     <Compile Include="Entities\InHouseStatus.cs" />
     <Compile Include="Entities\Internal\NefitGasSample.cs" />
     <Compile Include="Entities\Location.cs" />
@@ -63,12 +62,9 @@
     <Compile Include="Entities\Internal\NefitStatus.cs" />
     <Compile Include="Entities\OperationModes.cs" />
     <Compile Include="Entities\ServiceStatus.cs" />
-    <Compile Include="Entities\SystemSettings.cs" />
     <Compile Include="Entities\UIStatus.cs" />
     <Compile Include="Entities\UserModes.cs" />
-    <Compile Include="Entities\UserProgram.cs" />
     <Compile Include="Entities\ProgramSwitch.cs" />
-    <Compile Include="Entities\FullStatus.cs" />
     <Compile Include="Entities\StatusCode.cs" />
     <Compile Include="NefitClient.cs" />
     <Compile Include="NefitEncryption.cs" />
