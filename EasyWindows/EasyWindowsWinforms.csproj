@@ -4,7 +4,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{6735A025-A7BE-47F6-A9C6-FD153BA3A24D}</ProjectGuid>
+    <ProjectGuid>{983508C9-1501-4A04-BBE2-B9212398736C}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>DigitalThermostat</RootNamespace>

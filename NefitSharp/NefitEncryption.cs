@@ -2,8 +2,16 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Security.Cryptography;
 using System.Text;
+#if NETFX_CORE
+using Windows.Security.Cryptography;
+using Windows.Security.Cryptography.Core;
+using Windows.Storage.Streams;
+using Buffer = System.Buffer;
+#else
+using System.Security.Cryptography;
+#endif
+
 
 namespace NefitSharp
 {
@@ -16,12 +24,99 @@ namespace NefitSharp
         private byte[] _chatKey;
         //private byte[] _emailKey;
         //private byte[] _alarmKey;
+#if NETFX_CORE
+        public NefitEncryption(string serial, string access, string password)
+        {
+            _chatKey = GenerateKey(_chat, access, password);
+            //_emailKey = GenerateKey(_email, serial, "gservice_smtp");
+            //_alarmKey = GenerateKey(_alarm, serial, "gservice_alarm");
+        }
 
+        private byte[] Combine(byte[] inputBytes1, byte[] inputBytes2)
+        {
+            byte[] inputBytes = new byte[inputBytes1.Length + inputBytes2.Length];
+            Buffer.BlockCopy(inputBytes1, 0, inputBytes, 0, inputBytes1.Length);
+            Buffer.BlockCopy(inputBytes2, 0, inputBytes, inputBytes1.Length, inputBytes2.Length);
+            return inputBytes;
+        }
+
+        private byte[] GenerateKey(byte[] magicKey, string idKeyUuid, string password)
+        {
+            return Combine(ComputeMd5(Combine(Encoding.UTF8.GetBytes(idKeyUuid), magicKey)), ComputeMd5(Combine(magicKey, Encoding.UTF8.GetBytes(password))));
+        }
+
+        private static byte[] ComputeMd5(byte[] str)
+        {
+            try
+            {
+                HashAlgorithmProvider alg = HashAlgorithmProvider.OpenAlgorithm("MD5");
+                IBuffer buff = CryptographicBuffer.CreateFromByteArray(str);
+                IBuffer hashed = alg.HashData(buff);
+                byte[] output;
+                CryptographicBuffer.CopyToByteArray(hashed,out output);
+                return output;
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+        public string Decrypt(string cipherData)
+        {
+            try
+            {
+                List<byte> base64Str = new List<byte>(Convert.FromBase64String(cipherData));
+                int num = base64Str.Count % 8;
+                for (int i = 0; i < num; i++)
+                {
+                    base64Str.Add(0x00);
+                }
+                IBuffer plainBuffer = CryptographicBuffer.CreateFromByteArray(base64Str.ToArray());
+                IBuffer keyMaterial = CryptographicBuffer.CreateFromByteArray(_chatKey);
+                SymmetricKeyAlgorithmProvider symProvider = SymmetricKeyAlgorithmProvider.OpenAlgorithm(SymmetricAlgorithmNames.AesEcbPkcs7);
+                CryptographicKey symmKey = symProvider.CreateSymmetricKey(keyMaterial);
+                IBuffer buffDecrypted = CryptographicEngine.Decrypt(symmKey, plainBuffer, null);
+                return CryptographicBuffer.ConvertBinaryToString(BinaryStringEncoding.Utf8, buffDecrypted).Trim('\0');
+
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine("A Cryptographic error occurred: {0}", e.Message);
+                return null;
+            }
+        }
+
+        public string Encrypt(string data)
+        {
+            try
+            {
+                List<byte> hexString = new List<byte>(Encoding.UTF8.GetBytes(data));
+                while (hexString.Count % 16 != 0)
+                {
+                    hexString.Add(0x00);
+                }
+                IBuffer plainBuffer = CryptographicBuffer.ConvertStringToBinary(data, BinaryStringEncoding.Utf8);
+                IBuffer keyMaterial = CryptographicBuffer.CreateFromByteArray(_chatKey);
+                SymmetricKeyAlgorithmProvider symProvider = SymmetricKeyAlgorithmProvider.OpenAlgorithm(SymmetricAlgorithmNames.AesEcbPkcs7);
+                CryptographicKey symmKey = symProvider.CreateSymmetricKey(keyMaterial);
+
+                IBuffer buffEncrypted = CryptographicEngine.Encrypt(symmKey, plainBuffer, null);
+                return CryptographicBuffer.EncodeToBase64String(buffEncrypted);
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine("A Cryptographic error occurred: {0}", e.Message);
+                return null;
+            }
+        }
+#else
+           
         private readonly RijndaelManaged _rijndael;
         private readonly MD5 _md5;
 
         public NefitEncryption(string serial, string access, string password)
-        {
+        {            
             _rijndael = new RijndaelManaged();
             _md5 = MD5.Create();
             _rijndael.Mode = CipherMode.ECB;
@@ -94,5 +189,6 @@ namespace NefitSharp
                 return null;
             }
         }
+#endif
     }
 }

@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
+#if NETFX_CORE
+using System.Globalization;
+#else
 using System.Threading;
+#endif
 using NefitSharp.Entities;
 using NefitSharp.Entities.Internal;
 
@@ -24,7 +28,11 @@ namespace NefitSharp
 
         internal static double StringToDouble(string str)
         {
+#if NETFX_CORE
+            return Convert.ToDouble(str.Replace(".", CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator));
+#else
             return Convert.ToDouble(str.Replace(".", Thread.CurrentThread.CurrentCulture.NumberFormat.NumberDecimalSeparator));
+#endif
         }
     
         internal static DateTime GetNextDate(string day, int time)

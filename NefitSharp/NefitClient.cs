@@ -137,7 +137,11 @@ namespace NefitSharp
             }
             while (!Connected && SerialAccessKeyValid)
             {
+#if NETFX_CORE
+                Task.Delay(10).Wait();
+#else
                 Thread.Sleep(10);
+#endif
             }            
             if (EasyUUID() != _serial)         
             {
@@ -244,7 +248,11 @@ namespace NefitSharp
                             }
                         }
                         timeout -= cCheckInterval;
+#if NETFX_CORE
+                        Task.Delay(cCheckInterval).Wait();
+#else
                         Thread.Sleep(cCheckInterval);
+#endif
                     }
                 }
                 catch (Exception e)
@@ -290,7 +298,11 @@ namespace NefitSharp
                             }
                         }
                         timeout -= cCheckInterval;
+#if NETFX_CORE
+                        Task.Delay(cCheckInterval).Wait();
+#else
                         Thread.Sleep(cCheckInterval);
+#endif
                     }
                 }
                 catch (Exception e)
@@ -301,11 +313,11 @@ namespace NefitSharp
             }
         }
 
-        #endregion
+#endregion
 
-        #region Commands 
+#region Commands 
 
-        #region Sync Methods    
+#region Sync Methods    
 
         public int ActiveProgram()
         {
@@ -908,11 +920,11 @@ namespace NefitSharp
             return false;
         }
 
-        #endregion
+#endregion
 
 #if !NET20 && !NET35
 
-        #region Async commands    
+#region Async commands    
 
         public async Task<bool> ConnectAsync()
         {
@@ -1114,10 +1126,10 @@ namespace NefitSharp
             return await Task.Run(() => { return SetTemperature(temperature); });
         }
 
-        # endregion
+#endregion
 
 #endif
 
-        #endregion
+#endregion
     }
 }
