@@ -68,6 +68,13 @@ namespace DigitalThermostat
         {
             if (Settings.Default.firstStart)
             {
+                Settings.Default.Upgrade();
+                Settings.Default.firstStart = false;
+                Settings.Default.Save();
+            }
+
+            if (Settings.Default.firstStart)
+            {
                 settingsToolStripMenuItem_Click(sender, e);
             }
             else
@@ -77,16 +84,27 @@ namespace DigitalThermostat
             }
         }
 
-        private void Start()
+        private async void Start()
         {
             _temperatureStepDetermined = false;
             _currentStatus = null;
             _currentScreenMode = ScreenMode.MainScreen;
             _client = new NefitClient(Settings.Default.serial, Settings.Default.accessKey, Settings.Default.password);
-            _client.Connect();
-            if (_client.Connected)
+            _client.XMLLog += Log;
+            if (await _client.ConnectAsync())
             {
                 tmrUpdate.Enabled = true;
+                tmrUpdate_Tick(this,new EventArgs());
+            }
+            else if (!_client.SerialAccessKeyValid)
+            {               
+                MessageBox.Show(@"Authentication error: serial or accesskey invalid, please recheck your credentials", @"Authentication error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                settingsToolStripMenuItem_Click(this, new EventArgs());
+            }
+            else if (!_client.PasswordValid)
+            {
+                MessageBox.Show(@"Authentication error: password invalid, please recheck your credentials", @"Authentication error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                settingsToolStripMenuItem_Click(this, new EventArgs());
             }
         }
 
@@ -255,103 +273,105 @@ namespace DigitalThermostat
             }
 
 
-            if (_currentStatus.UserMode == UserModes.Clock && _currentProgram != null)
+            if (_currentStatus.UserMode == UserModes.Clock)
             {
-                Pen whitePen = new Pen(Color.White, 16*Settings.Default.scale);
-                Pen bluePen = new Pen(_blueColor, 4*Settings.Default.scale);
-                Pen lightBluePen = new Pen(_lightBlueColor, 4*Settings.Default.scale);
-                Pen redPen = new Pen(_redColor, 4*Settings.Default.scale);
-                for (int i = 0; i < 12; i++)
+                if (_currentProgram != null)
                 {
-                    int hour = i;
-                    if (i < DateTime.Now.Hour)
+                    Pen whitePen = new Pen(Color.White, 16*Settings.Default.scale);
+                    Pen bluePen = new Pen(_blueColor, 4*Settings.Default.scale);
+                    Pen lightBluePen = new Pen(_lightBlueColor, 4*Settings.Default.scale);
+                    Pen redPen = new Pen(_redColor, 4*Settings.Default.scale);
+                    for (int i = 0; i < 12; i++)
                     {
-                        hour += 12;
-                    }
-                    int segmentStart = 271 + (i*29) + i;
-                    e.Graphics.DrawArc(whitePen, 135*Settings.Default.scale, 144*Settings.Default.scale, 362*Settings.Default.scale, 362*Settings.Default.scale, segmentStart, 28);
-                    Pen p;
-
-                    bool showRedColor;
-
-                    int segments;
-                    if ((i == DateTime.Now.Hour%12 && _currentProgram[1].Timestamp.Hour - DateTime.Now.Hour < 12) || hour == _currentProgram[1].Timestamp.Hour)
-                    {
-                        segments = 28;
-                    }
-                    else
-                    {
-                        segments = 1;
-                    }
-
-                    bool currentStatus = _currentProgram[0].On;
-                    //if (_currentStatus.HedEnabled)
-                    //{
-                    //    currentStatus = _currentStatus.HedDeviceAtHome;
-                    //}
-
-                    for (int q = 0; q < segments; q++)
-                    {
-                        if (hour == DateTime.Now.Hour)
+                        int hour = i;
+                        if (i < DateTime.Now.Hour)
                         {
-                            if (_currentProgram[1].Timestamp.Hour - 12 <= hour)
+                            hour += 12;
+                        }
+                        int segmentStart = 271 + (i*29) + i;
+                        e.Graphics.DrawArc(whitePen, 135*Settings.Default.scale, 144*Settings.Default.scale, 362*Settings.Default.scale, 362*Settings.Default.scale, segmentStart, 28);
+                        Pen p;
+
+                        bool showRedColor;
+
+                        int segments;
+                        if ((i == DateTime.Now.Hour%12 && _currentProgram[1].Timestamp.Hour - DateTime.Now.Hour < 12) || hour == _currentProgram[1].Timestamp.Hour)
+                        {
+                            segments = 28;
+                        }
+                        else
+                        {
+                            segments = 1;
+                        }
+
+                        bool currentStatus = _currentProgram[0].On;
+
+                        for (int q = 0; q < segments; q++)
+                        {
+                            if (hour == DateTime.Now.Hour)
                             {
-                                if (DateTime.Now.Minute/2.14 <= q)
+                                if (_currentProgram[1].Timestamp.Hour - 12 <= hour)
                                 {
-                                    showRedColor = currentStatus;
-                                }                                
-                                else if (q < Convert.ToInt32(_currentProgram[1].Timestamp.Minute/2.14) || _currentProgram[1].Timestamp.Hour - 12 < hour)
-                                {
-                                    //all minutes which have passed need to be in the new color
-                                    showRedColor = _currentProgram[1].On;
+                                    if (DateTime.Now.Minute/2.14 <= q)
+                                    {
+                                        showRedColor = currentStatus;
+                                    }
+                                    else if (q < Convert.ToInt32(_currentProgram[1].Timestamp.Minute/2.14) || _currentProgram[1].Timestamp.Hour - 12 < hour)
+                                    {
+                                        //all minutes which have passed need to be in the new color
+                                        showRedColor = _currentProgram[1].On;
+                                    }
+                                    else
+                                    {
+                                        showRedColor = currentStatus;
+                                    }
                                 }
                                 else
                                 {
                                     showRedColor = currentStatus;
                                 }
                             }
-                            else
+                            else if (hour == _currentProgram[1].Timestamp.Hour)
                             {
-                                showRedColor = currentStatus;
-                            }
-                        }
-                        else if (hour == _currentProgram[1].Timestamp.Hour)
-                        {
-                            if (q < Convert.ToInt32(_currentProgram[1].Timestamp.Minute/2.14))
-                            {
-                                showRedColor = currentStatus;
-                            }
-                            else
-                            {
-                                showRedColor = _currentProgram[1].On;
-                            }
-                        }
-                        else
-                        {
-                            if (hour >= DateTime.Now.Hour && hour < _currentProgram[1].Timestamp.Hour)
-                            {
-                                showRedColor = currentStatus;
+                                if (q < Convert.ToInt32(_currentProgram[1].Timestamp.Minute/2.14))
+                                {
+                                    showRedColor = currentStatus;
+                                }
+                                else
+                                {
+                                    showRedColor = _currentProgram[1].On;
+                                }
                             }
                             else
                             {
-                                showRedColor = _currentProgram[1].On;
+                                if (hour >= DateTime.Now.Hour && hour < _currentProgram[1].Timestamp.Hour)
+                                {
+                                    showRedColor = currentStatus;
+                                }
+                                else
+                                {
+                                    showRedColor = _currentProgram[1].On;
+                                }
                             }
-                        }
-                        if (showRedColor)
-                        {
-                            p = redPen;
-                        }
-                        else
-                        {
-                            p = bluePen;
-                        }
+                            if (showRedColor)
+                            {
+                                p = redPen;
+                            }
+                            else
+                            {
+                                p = bluePen;
+                            }
 
-                        e.Graphics.DrawArc(p, 147*Settings.Default.scale, 156*Settings.Default.scale, 338*Settings.Default.scale, 338*Settings.Default.scale, segmentStart + ((28F/segments)*q), 28/segments);
+                            e.Graphics.DrawArc(p, 147*Settings.Default.scale, 156*Settings.Default.scale, 338*Settings.Default.scale, 338*Settings.Default.scale, segmentStart + ((28F/segments)*q), 28/segments);
+                        }
                     }
+                    CurrentTimeIndicator(e);
                 }
-                CurrentTimeIndicator(e);
+                else
+                {
+                    e.Graphics.DrawArc(new Pen(Color.White, 16 * Settings.Default.scale), 135 * Settings.Default.scale, 144 * Settings.Default.scale, 362 * Settings.Default.scale, 362 * Settings.Default.scale, 0, 360);
+                }
             }
-
             else
             {
                 e.Graphics.DrawArc(new Pen(Color.FromArgb(128, 128, 128), 16*Settings.Default.scale), 135*Settings.Default.scale, 144*Settings.Default.scale, 362*Settings.Default.scale, 362*Settings.Default.scale, 0, 360);
@@ -517,11 +537,13 @@ namespace DigitalThermostat
         {
             try
             {
-#if !DEBUG
-                if (_debugMode)
+#if !DEBUG                
+                if (Settings.Default.debugMode)
+#else
+                    Debug.WriteLine(DateTime.Now.ToString("HH:mm:ss") + txt);
 #endif
                 {
-                    Debug.WriteLine(DateTime.Now.ToString("HH:mm:ss") + txt);
+
                     StreamWriter writer = new StreamWriter(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\log.txt", true);
                     writer.WriteLine(DateTime.Now.ToString("HH:mm:ss") + txt);
                     writer.Close();
@@ -551,16 +573,26 @@ namespace DigitalThermostat
                 }
                 if (_client.Connected)
                 {
-                    if (_client.AuthenticationError)
+                    UIStatus stat = await _client.GetUIStatusAsync();
+                    if (stat != null)
                     {
-                        tmrUpdate.Stop();
-                        MessageBox.Show(@"Authentication error, please recheck your credentials", @"Authentication error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        settingsToolStripMenuItem_Click(this, new EventArgs());
+                        _currentStatus = stat;
+                        Invalidate();
+                    }
+                    if (_currentProgram == null)
+                    {
+                        ProgramSwitch curr = await _client.GetCurrentSwitchPointAsync();
+                        ProgramSwitch next = await _client.GetNextSwitchPointAsync();
+                        if (curr != null && next != null)
+                        {
+                            _currentProgram = new ProgramSwitch[] {curr, next};
+                            Invalidate();
+                        }
                     }
 
                     if (!_temperatureStepDetermined)
                     {
-                        _temperatureStep = _client.EasyTemperatureStep();
+                        _temperatureStep = await _client.EasyTemperatureStepAsync();
                         if (!double.IsNaN(_temperatureStep))
                         {
                             _temperatureStepDetermined = true;
@@ -569,16 +601,6 @@ namespace DigitalThermostat
                         {
                             _temperatureStep = 0.5;
                         }
-                    }
-                    if (_currentProgram == null)
-                    {
-                      //  _currentProgram = await _client.GetCurrentAndNextSwitchAsync();
-                    }
-                    UIStatus stat = await _client.GetUIStatusAsync();
-                    if (stat != null)
-                    {
-                        _currentStatus = stat;
-                        Invalidate();
                     }
                 }
             }
@@ -594,6 +616,7 @@ namespace DigitalThermostat
             {
                 _client.Disconnect();
             }
+            _client.XMLLog -= Log;
             _client = null;
             FrmSettings settings = new FrmSettings();
             settings.ShowDialog();

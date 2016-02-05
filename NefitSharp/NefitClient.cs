@@ -13,10 +13,8 @@ using Newtonsoft.Json;
 
 namespace NefitSharp
 {
-
     public delegate void ExceptionDelegate(Exception e);
-
-    public delegate void XMLMessageDelegate(string text);
+    public delegate void CommunicationLogDelegate(string text);
 
     public class NefitClient
     {
@@ -42,30 +40,42 @@ namespace NefitSharp
         private bool _passwordValid;
         private bool _readyForCommands;
 
-        /// <summary>        /// Subscribe to this event if you want to get notified if an internal exception occurs.        /// </summary>        
-        public event ExceptionDelegate ExceptionEvent = delegate {
-        }
-            ;
+        /// <summary>      
+        /// Subscribe to this event if you want to get notified if an internal exception occurs.        
+        /// </summary>        
+        public event ExceptionDelegate ExceptionEvent = delegate {};
 
-        /// <summary>        /// Indicates if there was an general authentication error                /// </summary>        
+        public event CommunicationLogDelegate XMLLog = delegate { }; 
+
+        /// <summary>        
+        /// Indicates if there was an general authentication error                
+        /// </summary>        
+
         public bool AuthenticationError
         {
             get { return !_serialAccessKeyValid || !_passwordValid; }
         }
 
-        /// <summary>        /// Indicates if the used serial and access keys are valid        /// </summary> 
+        /// <summary>        
+        /// Indicates if the used serial and access keys are valid        
+        /// </summary> 
         public bool SerialAccessKeyValid
         {
             get { return _serialAccessKeyValid; }
         }
 
-        /// <summary>        /// Indicates if the used password is valid        /// </summary>     
+        /// <summary>        
+        /// Indicates if the used password is valid        
+        /// </summary>     
         public bool PasswordValid
         {
             get { return _passwordValid; }
         }
 
-        /// <summary>        /// Indicates if the connection has been successfully established        ///  Use <see cref="AuthenticationError"/>  to check if the authentication is also valid.        /// </summary>   
+        /// <summary>        
+        /// Indicates if the connection has been successfully established        
+        /// Use <see cref="AuthenticationError"/>  to check if the authentication is also valid.        
+        /// </summary>   
         public bool Connected
         {
             get
@@ -111,9 +121,8 @@ namespace NefitSharp
                 _serialAccessKeyValid = true;
                 _passwordValid = true;
                 _readyForCommands = false;
-                _client = new XmppClientConnection(cHost);
-                _client.Open(cRrcContactPrefix + _serial, cAccesskeyPrefix + _accessKey);
-                _client.Server = cHost;
+                _client = new XmppClientConnection(cHost);                
+                _client.Open(cRrcContactPrefix + _serial, cAccesskeyPrefix + _accessKey);              
                 _client.KeepAliveInterval = cKeepAliveInterval;
                 _client.Resource = "";
                 _client.AutoAgents = false;
@@ -129,16 +138,17 @@ namespace NefitSharp
             while (!Connected && SerialAccessKeyValid)
             {
                 Thread.Sleep(10);
-            }
-            ActiveProgram();
-            //if (GetStatus() == null)         
+            }            
+            if (EasyUUID() != _serial)         
             {
-                //  Disconnect	();
+                 Disconnect	();
             }
             return Connected;
         }
 
-        /// <summary>        /// Disconnects from the Bosch server        /// </summary>     
+        /// <summary>        
+        /// Disconnects from the Bosch server       
+        /// </summary>     
         public void Disconnect()
         {
             try
@@ -159,6 +169,7 @@ namespace NefitSharp
 
         private void XmppRead(object sender, string xml)
         {
+            XMLLog("XML << " + xml);
             if (!xml.StartsWith("<stream"))
             {
                 try
@@ -189,6 +200,7 @@ namespace NefitSharp
 
         private void XmppWrite(object sender, string xml)
         {
+            XMLLog("XML >> " + xml);
             if (!xml.StartsWith("<stream"))
             {
                 try
@@ -212,10 +224,12 @@ namespace NefitSharp
         {
             lock (_communicationLock)
             {
+                
                 try
                 {
                     NefitHTTPRequest request = new NefitHTTPRequest(url, _client.MyJID, cRrcGatewayPrefix + _serial + "@" + cHost, _encryptionHelper.Encrypt(data));
                     _client.Send(request.ToString());
+                    XMLLog(">> " + request.ToString());
                     int timeout = cRequestTimeout;
                     while (timeout > 0)
                     {
@@ -223,6 +237,7 @@ namespace NefitSharp
                         {
                             if (_lastMessage != null)
                             {
+                                XMLLog("<< " + _lastMessage.Code);
                                 bool result = _lastMessage.Code == 204 || _lastMessage.Code == 200;
                                 _lastMessage = null;
                                 return result;
@@ -248,6 +263,7 @@ namespace NefitSharp
                 {
                     NefitHTTPRequest request = new NefitHTTPRequest(url, _client.MyJID, cRrcGatewayPrefix + _serial + "@" + cHost);
                     _client.Send(request.ToString());
+                    XMLLog(">> " + request.ToString());
                     int timeout = cRequestTimeout;
                     while (timeout > 0)
                     {
@@ -256,9 +272,9 @@ namespace NefitSharp
                             if (_lastMessage != null)
                             {
                                 string decrypted = _encryptionHelper.Decrypt(_lastMessage.Payload);
+                                XMLLog("<< " + decrypted);
                                 if (decrypted.StartsWith("{"))
                                 {
-
                                     NefitJson<T> obj = JsonConvert.DeserializeObject<NefitJson<T>>(decrypted);
                                     _lastMessage = null;
                                     if (obj != null)
@@ -301,7 +317,7 @@ namespace NefitSharp
             {
                 ExceptionEvent(e);
             }
-            return -1;
+            return int.MinValue;
         }
 
         public ProgramSwitch[] Program(int index)
@@ -641,7 +657,7 @@ namespace NefitSharp
         {
             try
             {
-                return Get<string>("/gateway/serialnumber");
+                return Get<string>("/gateway/serialnumber");                
             }
             catch (Exception e)
             {
@@ -898,318 +914,199 @@ namespace NefitSharp
 
         #region Async commands    
 
-        public async Task ConnectAsync()
+        public async Task<bool> ConnectAsync()
         {
-            await Task.Run(() =>
-            {
-                Connect();
-            }
-                )
-                ;
+            return await Task.Run(() =>{return Connect();});
         }
 
         public async Task<int> ActiveProgramAsync()
         {
-            return await Task.Run(() => {
-                                            return ActiveProgram();
-            }
-                );
+            return await Task.Run(() => { return ActiveProgram(); });
         }
 
         public async Task<ProgramSwitch[]> ProgramAsync(int index)
         {
-            return await Task.Run(() => {
-                                            return Program(index);
-            }
-                );
+            return await Task.Run(() => { return Program(index); });
         }
 
         public async Task<string> SwitchpointNameAsync(int nameIndex)
         {
-            return await Task.Run(() => {
-                                            return SwitchpointName(nameIndex);
-            }
-                );
+            return await Task.Run(() => { return SwitchpointName(nameIndex); });
         }
 
         public async Task<bool> FireplaceFunctionActiveAsync()
         {
-            return await Task.Run(() => {
-                                            return FireplaceFunctionActive();
-            }
-                );
+            return await Task.Run(() => { return FireplaceFunctionActive(); });
         }
 
         public async Task<bool> PreheatingActiveAsync()
         {
-            return await Task.Run(() => {
-                                            return PreheatingActive();
-            }
-                );
+            return await Task.Run(() => { return PreheatingActive(); });
         }
 
         public async Task<double> OutdoorTemperatureAsync()
         {
-            return await Task.Run(() => {
-                                            return OutdoorTemperature();
-            }
-                );
+            return await Task.Run(() => { return OutdoorTemperature(); });
         }
 
         public async Task<string> EasyServiceStatusAsync()
         {
-            return await Task.Run(() => {
-                                            return EasyServiceStatus();
-            }
-                );
+            return await Task.Run(() => { return EasyServiceStatus(); });
         }
 
         public async Task<bool> IgnitionStatusAsync()
         {
-            return await Task.Run(() => {
-                                            return IgnitionStatus();
-            }
-                );
+            return await Task.Run(() => { return IgnitionStatus(); });
         }
 
         public async Task<bool> RefillNeededStatusAsync()
         {
-            return await Task.Run(() => {
-                                            return RefillNeededStatus();
-            }
-                );
+            return await Task.Run(() => { return RefillNeededStatus(); });
         }
 
         public async Task<bool> ClosingValveStatusAsync()
         {
-            return await Task.Run(() => {
-                                            return ClosingValveStatus();
-            }
-                );
+            return await Task.Run(() => { return ClosingValveStatus(); });
         }
 
         public async Task<bool> ShortTappingStatusAsync()
         {
-            return await Task.Run(() => {
-                                            return ShortTappingStatus();
-            }
-                );
+            return await Task.Run(() => { return ShortTappingStatus(); });
         }
 
         public async Task<bool> SystemLeakingStatusAsync()
         {
-            return await Task.Run(() => {
-                                            return SystemLeakingStatus();
-            }
-                );
+            return await Task.Run(() => { return SystemLeakingStatus(); });
         }
 
         public async Task<double> SystemPressureAsync()
         {
-            return await Task.Run(() => {
-                                            return SystemPressure();
-            }
-                );
+            return await Task.Run(() => { return SystemPressure(); });
         }
 
         public async Task<double> CentralHeatingSupplyTemperatureAsync()
         {
-            return await Task.Run(() => {
-                                            return CentralHeatingSupplyTemperature();
-            }
-                );
+            return await Task.Run(() => { return CentralHeatingSupplyTemperature(); });
         }
 
         public async Task<StatusCode> GetStatusCodeAsync()
         {
-            return await Task.Run(() => {
-                                            return GetStatusCode();
-            }
-                );
+            return await Task.Run(() => { return GetStatusCode(); });
         }
 
         public async Task<ProgramSwitch> GetCurrentSwitchPointAsync()
         {
-            return await Task.Run(() => {
-                                            return GetCurrentSwitchPoint();
-            }
-                );
+            return await Task.Run(() => { return GetCurrentSwitchPoint(); });
         }
 
         public async Task<ProgramSwitch> GetNextSwitchPointAsync()
         {
-            return await Task.Run(() => {
-                                            return GetNextSwitchPoint();
-            }
-                );
+            return await Task.Run(() => { return GetNextSwitchPoint(); });
         }
 
         public async Task<Location> GetLocationAsync()
         {
-            return await Task.Run(() => {
-                                            return GetLocation();
-            }
-                );
+            return await Task.Run(() => { return GetLocation(); });
         }
 
         public async Task<GasSample[]> GetGasusageAsync()
         {
-            return await Task.Run(() => {
-                                            return GetGasusage();
-            }
-                );
+            return await Task.Run(() => { return GetGasusage(); });
         }
 
         public async Task<UIStatus> GetUIStatusAsync()
         {
-            return await Task.Run(() => {
-                                            return GetUIStatus();
-            }
-                );
+            return await Task.Run(() => { return GetUIStatus(); });
         }
 
         public async Task<string[]> OwnerInfoAsync()
         {
-            return await Task.Run(() => {
-                                            return OwnerInfo();
-            }
-                );
+            return await Task.Run(() => { return OwnerInfo(); });
         }
 
         public async Task<string[]> InstallerInfoAsync()
         {
-            return await Task.Run(() => {
-                                            return InstallerInfo();
-            }
-                );
+            return await Task.Run(() => { return InstallerInfo(); });
         }
 
         public async Task<string> EasySerialAsync()
         {
-            return await Task.Run(() => {
-                                            return EasySerial();
-            }
-                );
+            return await Task.Run(() => { return EasySerial(); });
         }
 
         public async Task<string> EasyFirmwareAsync()
         {
-            return await Task.Run(() => {
-                                            return EasyFirmware();
-            }
-                );
+            return await Task.Run(() => { return EasyFirmware(); });
         }
 
         public async Task<string> EasyHardwareAsync()
         {
-            return await Task.Run(() => {
-                                            return EasyHardware();
-            }
-                );
+            return await Task.Run(() => { return EasyHardware(); });
         }
 
         public async Task<string> EasyUUIDAsync()
         {
-            return await Task.Run(() => {
-                                            return EasyUUID();
-            }
-                );
+            return await Task.Run(() => { return EasyUUID(); });
         }
 
         public async Task<string> EasyUpdateStrategyAsync()
         {
-            return await Task.Run(() => {
-                                            return EasyUpdateStrategy();
-            }
-                );
+            return await Task.Run(() => { return EasyUpdateStrategy(); });
         }
 
         public async Task<string> CVSerialAsync()
         {
-            return await Task.Run(() => {
-                                            return CVSerial();
-            }
-                );
+            return await Task.Run(() => { return CVSerial(); });
         }
 
         public async Task<string> CVVersionAsync()
         {
-            return await Task.Run(() => {
-                                            return CVVersion();
-            }
-                );
+            return await Task.Run(() => { return CVVersion(); });
         }
 
         public async Task<string> CVBurnerMakeAsync()
         {
-            return await Task.Run(() => {
-                                            return CVBurnerMake();
-            }
-                );
+            return await Task.Run(() => { return CVBurnerMake(); });
         }
 
         public async Task<bool> ThermalDesinfectEnabledAsync()
         {
-            return await Task.Run(() => {
-                                            return ThermalDesinfectEnabled();
-            }
-                );
+            return await Task.Run(() => { return ThermalDesinfectEnabled(); });
         }
 
         public async Task<DateTime> NextThermalDesinfectAsync()
         {
-            return await Task.Run(() => {
-                                            return NextThermalDesinfect();
-            }
-                );
+            return await Task.Run(() => { return NextThermalDesinfect(); });
         }
 
         public async Task<string> EasySensitivityAsync()
         {
-            return await Task.Run(() => {
-                                            return EasySensitivity();
-            }
-                );
+            return await Task.Run(() => { return EasySensitivity(); });
         }
 
         public async Task<double> EasyTemperatureStepAsync()
         {
-            return await Task.Run(() => {
-                                            return EasyTemperatureStep();
-            }
-                );
+            return await Task.Run(() => { return EasyTemperatureStep(); });
         }
 
         public async Task<double> EasyTemperatureOffsetAsync()
         {
-            return await Task.Run(() => {
-                                            return EasyTemperatureOffset();
-            }
-                );
+            return await Task.Run(() => { return EasyTemperatureOffset(); });
         }
 
         public async Task<bool> SetHotWaterModeClockProgramAsync(bool onOff)
         {
-            return await Task.Run(() => {
-                                            return SetHotWaterModeClockProgram(onOff);
-            }
-                );
+            return await Task.Run(() => { return SetHotWaterModeClockProgram(onOff); });
         }
 
         public async Task<bool> SetHotWaterModeManualProgramAsync(bool onOff)
         {
-            return await Task.Run(() => {
-                                            return SetHotWaterModeManualProgram(onOff);
-            }
-                );
+            return await Task.Run(() => { return SetHotWaterModeManualProgram(onOff); });
         }
 
         public async Task<bool> SetUserModeAsync(UserModes newMode)
         {
-            return await Task.Run(() => {
-                                            return SetUserMode(newMode);
-            }
-                );
+            return await Task.Run(() => { return SetUserMode(newMode); });
         }
 
         public async Task<bool> SetTemperatureAsync(double temperature)
