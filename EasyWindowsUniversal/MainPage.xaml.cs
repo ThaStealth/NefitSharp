@@ -67,6 +67,11 @@ namespace EasyWindowsUniversal
         public MainPage()
         {
             InitializeComponent();
+            _config = new Conf();
+            _config.serial = "559914603";
+            _config.accessKey = "ZGiesFgeHthmDQAJ";
+            _config.password = "wiglil";
+            _config.scale = 1;
             Start();
             //Paint();
         }
@@ -210,7 +215,7 @@ namespace EasyWindowsUniversal
                             hour += 12;
                         }
                         int segmentStart = 271 + (i * 29) + i;
-                        DrawArc(Brushes.White, 16 * _config.scale, new Point(315, 326), 181, segmentStart, 28, canvas);
+                        //DrawArc(Brushes.White, 16 * _config.scale, new Point(315, 326), 181, segmentStart, 28, canvas);
                         Brush p;
 
                         bool showRedColor;
@@ -289,7 +294,7 @@ namespace EasyWindowsUniversal
                 }
                 else
                 {
-                    DrawArc(Brushes.White, 16 * _config.scale, new Point(315, 326), 181, 0, 360, canvas);
+                //    DrawArc(Brushes.White, 16 * _config.scale, new Point(315, 326), 181, 0, 360, canvas);
                 }
             }
             else
@@ -366,47 +371,47 @@ namespace EasyWindowsUniversal
 
         public void DrawArc(Brush clr, double width, Point center, double radius, double start_angle, double end_angle, Canvas canvas)
         {
-            start_angle = (start_angle * (2 * Math.PI)) / 360;
-            end_angle = start_angle + (end_angle * (2 * Math.PI)) / 360;
+            //start_angle = (start_angle * (2 * Math.PI)) / 360;
+            //end_angle = start_angle + (end_angle * (2 * Math.PI)) / 360;
 
-            Path arc_path = new Path();
-            arc_path.Stroke = clr;
-            arc_path.StrokeThickness = width;
-            Canvas.SetLeft(arc_path, 0);
-            Canvas.SetTop(arc_path, 0);
+            //Path arc_path = new Path();
+            //arc_path.Stroke = clr;
+            //arc_path.StrokeThickness = width;
+            //Canvas.SetLeft(arc_path, 0);
+            //Canvas.SetTop(arc_path, 0);
 
-            start_angle = ((start_angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-            end_angle = ((end_angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-            if (end_angle < start_angle)
-            {
-                double temp_angle = end_angle;
-                end_angle = start_angle;
-                start_angle = temp_angle;
-            }
-            if (start_angle == end_angle)
-            {
-                DrawArc(clr, width, center, radius, start_angle, start_angle + Math.PI, canvas);
-                DrawArc(clr, width, center, radius, start_angle + Math.PI, start_angle, canvas);
-            }
-            else
-            {
-                double angle_diff = end_angle - start_angle;
-                PathGeometry pathGeometry = new PathGeometry();
-                PathFigure pathFigure = new PathFigure();
-                ArcSegment arcSegment = new ArcSegment();
-                arcSegment.IsLargeArc = angle_diff > Math.PI;
-                //Set start of arc
-                pathFigure.StartPoint = new Point(center.X + radius * Math.Cos(start_angle), center.Y + radius * Math.Sin(start_angle));
-                //set end point of arc.
-                arcSegment.Point = new Point(center.X + radius * Math.Cos(end_angle), center.Y + radius * Math.Sin(end_angle));
-                arcSegment.Size = new Size(radius, radius);
-                arcSegment.SweepDirection = SweepDirection.Clockwise;
+            //start_angle = ((start_angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+            //end_angle = ((end_angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+            //if (end_angle < start_angle)
+            //{
+            //    double temp_angle = end_angle;
+            //    end_angle = start_angle;
+            //    start_angle = temp_angle;
+            //}
+            //if (start_angle == end_angle)
+            //{
+            //    DrawArc(clr, width, center, radius, start_angle, start_angle + Math.PI, canvas);
+            //    DrawArc(clr, width, center, radius, start_angle + Math.PI, start_angle, canvas);
+            //}
+            //else
+            //{
+            //    double angle_diff = end_angle - start_angle;
+            //    PathGeometry pathGeometry = new PathGeometry();
+            //    PathFigure pathFigure = new PathFigure();
+            //    ArcSegment arcSegment = new ArcSegment();
+            //    arcSegment.IsLargeArc = angle_diff > Math.PI;
+            //    Set start of arc
+            //    pathFigure.StartPoint = new Point(center.X + radius * Math.Cos(start_angle), center.Y + radius * Math.Sin(start_angle));
+            //    set end point of arc.
+            //    arcSegment.Point = new Point(center.X + radius * Math.Cos(end_angle), center.Y + radius * Math.Sin(end_angle));
+            //    arcSegment.Size = new Size(radius, radius);
+            //    arcSegment.SweepDirection = SweepDirection.Clockwise;
 
-                pathFigure.Segments.Add(arcSegment);
-                pathGeometry.Figures.Add(pathFigure);
-                arc_path.Data = pathGeometry;
-                canvas.Children.Add(arc_path);
-            }
+            //    pathFigure.Segments.Add(arcSegment);
+            //    pathGeometry.Figures.Add(pathFigure);
+            //    arc_path.Data = pathGeometry;
+            //    canvas.Children.Add(arc_path);
+            //}
         }
 
         private async void tmrUpdate_Tick(object sender, EventArgs e)

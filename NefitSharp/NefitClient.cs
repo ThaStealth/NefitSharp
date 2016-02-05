@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Threading;
 #if !NET20 && !NET35
 using System.Threading.Tasks;
+#else
+using System.Threading;
 #endif
 using System.Xml;
 using agsXMPP;
@@ -137,7 +137,7 @@ namespace NefitSharp
             }
             while (!Connected && SerialAccessKeyValid)
             {
-#if NETFX_CORE
+#if !NET20 && !NET35
                 Task.Delay(10).Wait();
 #else
                 Thread.Sleep(10);
@@ -248,7 +248,7 @@ namespace NefitSharp
                             }
                         }
                         timeout -= cCheckInterval;
-#if NETFX_CORE
+#if !NET20 && !NET35
                         Task.Delay(cCheckInterval).Wait();
 #else
                         Thread.Sleep(cCheckInterval);
@@ -298,7 +298,7 @@ namespace NefitSharp
                             }
                         }
                         timeout -= cCheckInterval;
-#if NETFX_CORE
+#if !NET20 && !NET35
                         Task.Delay(cCheckInterval).Wait();
 #else
                         Thread.Sleep(cCheckInterval);

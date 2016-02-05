@@ -161,12 +161,6 @@
       <SubType>Designer</SubType>
     </Page>
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\NefitSharp\NefitSharpNET45Universal.csproj">
-      <Project>{b674c995-68a1-40a3-b061-ef772595f581}</Project>
-      <Name>NefitSharpNET45Universal</Name>
-    </ProjectReference>
-  </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '14.0' ">
     <VisualStudioVersion>14.0</VisualStudioVersion>
   </PropertyGroup>
