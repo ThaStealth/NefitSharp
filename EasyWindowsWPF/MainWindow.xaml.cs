@@ -77,9 +77,6 @@ namespace EasyWindowsWPF
             _temperatureStepDetermined = false;
             _currentStatus = null;
             _currentScreenMode = ScreenMode.MainScreen;
-            Settings.Default.serial = "559914603";
-            Settings.Default.accessKey = "ZGiesFgeHthmDQAJ";
-            Settings.Default.password = "wiglil";
 
             _client = new NefitClient(Settings.Default.serial, Settings.Default.accessKey, Settings.Default.password);
             //_client.XMLLog += Log;
