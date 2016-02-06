@@ -39,11 +39,11 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="agsXMPP, Version=1.1.1.0, Culture=neutral, PublicKeyToken=ff839b81f1debe86, processorArchitecture=MSIL">
-      <HintPath>packages\agsXMPP.1.1.1.0\lib\agsXMPP.dll</HintPath>
+      <HintPath>..\packages\agsXMPP.1.1.1.0\lib\agsXMPP.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=8.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>packages\Newtonsoft.Json.8.0.2\lib\net20\Newtonsoft.Json.dll</HintPath>
+      <HintPath>..\packages\Newtonsoft.Json.8.0.2\lib\net20\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
