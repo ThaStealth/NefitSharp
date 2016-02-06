@@ -137,13 +137,26 @@ namespace NefitSharp
             while (!Connected && SerialAccessKeyValid)
             {
                 Thread.Sleep(10);
-            }            
-            //if (EasyUUID() != _serial)         
-            //{
-            //     Disconnect	();
-            //}
+            }
+            if (EasyUUID() != _serial)
+            {
+                Disconnect();
+            }
             return Connected;
+
         }
+
+#if !NET20 && !NET35
+
+        /// <summary>        
+        /// Starts the communication to the Bosch server backend with the credentials provided in the constructor        
+        /// </summary>     
+        ///  <returns>When returns false, check <see cref="PasswordValid"/> and <see cref="SerialAccessKeyValid"/> to see if there was an authentication problem</returns>  
+        public async Task<bool> ConnectAsync()
+        {
+            return await Task.Run(() => { return Connect(); });
+        }
+#endif
 
         /// <summary>        
         /// Disconnects from the Bosch server       
@@ -210,7 +223,10 @@ namespace NefitSharp
                 {
                     XmlDocument xmlDoc = new XmlDocument();
                     xmlDoc.LoadXml(xml);
-                 
+                    if (xmlDoc.DocumentElement != null && xmlDoc.DocumentElement.Name == "presence")
+                    {
+                        _readyForCommands = true;
+                    }
                 }
                 catch (Exception e)
                 {
@@ -529,6 +545,45 @@ namespace NefitSharp
         }
 
         /// <summary>
+        /// Indiciates if the thermal desinfect program is enabled
+        /// </summary>
+        /// <returns>True/false or null if the command fails</returns>
+        public bool? ThermalDesinfectEnabled()
+        {
+            try
+            {
+                return Get<string>("/dhwCircuits/dhwA/thermaldesinfect/state") == "on";
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Returns the timestamp of the next scheduled thermal desinfect.
+        /// </summary>
+        /// <returns>The date/time of the next thermal desinfect or a datetime with 0 ticks if the command fails</returns>
+        public DateTime NextThermalDesinfect()
+        {
+            try
+            {
+                int nextTermalTime = Get<int>("/dhwCircuits/dhwA/thermaldesinfect/time");
+                string nextTermalDay = Get<string>("/dhwCircuits/dhwA/thermaldesinfect/weekday");
+                if (nextTermalDay != null)
+                {
+                    return Utils.GetNextDate(nextTermalDay, nextTermalTime);
+                }
+            }
+            catch (Exception e)
+            {
+                ExceptionEvent(e);
+            }
+            return new DateTime();
+        }
+
+        /// <summary>
         /// Returns the current pressure of the CV circuit
         /// </summary>
         /// <returns>The presure of the CV circuit or <see cref="Double.NaN"/> if the command fails</returns>
@@ -623,6 +678,10 @@ namespace NefitSharp
             return null;
         }
 
+        /// <summary>
+        /// Returns the location of the Easy device
+        /// </summary>
+        /// <returns>Location of the easy device, or null if the command fails</returns>
         public Location GetLocation()
         {
             try
@@ -638,13 +697,18 @@ namespace NefitSharp
             return null;
         }
 
+        /// <summary>
+        /// Returns all daily gas usage samples collected by the Easy device
+        /// </summary>
+        /// <returns>An array of gas samples,or null if the command fails</returns>
         public GasSample[] GetGasusage()
         {
             bool hasValidSamples = true;
             int currentPage = 1;
-            List<GasSample> gasSamples = new List<GasSample>();
+
             try
             {
+                List<GasSample> gasSamples = new List<GasSample>();
                 while (hasValidSamples)
                 {
                     NefitGasSample[] samples = Get<NefitGasSample[]>("/ecus/rrc/recordings/gasusage?page=" + currentPage);
@@ -654,7 +718,7 @@ namespace NefitSharp
                         {
                             if (sample.d != "255-256-65535")
                             {
-                                gasSamples.Add(new GasSample(Convert.ToDateTime(sample.d), sample.hw/10.0, sample.ch/10.0));
+                                gasSamples.Add(new GasSample(Convert.ToDateTime(sample.d), sample.hw/10.0, sample.ch/10.0,sample.T/10.0));
                             }
                             else
                             {
@@ -669,14 +733,19 @@ namespace NefitSharp
                         hasValidSamples = false;
                     }
                 }
+                return gasSamples.ToArray();
             }
             catch (Exception e)
             {
                 ExceptionEvent(e);
             }
-            return gasSamples.ToArray();
+            return null;
         }
 
+        /// <summary>
+        /// Returns the overall status presented in the UI
+        /// </summary>
+        /// <returns>The UI status, or null if the command fails</returns>
         public UIStatus GetUIStatus()
         {
             try
@@ -694,6 +763,10 @@ namespace NefitSharp
             return null;
         }
 
+        /// <summary>
+        /// Returns the owner information filled in on the Easy app
+        /// </summary>
+        /// <returns>Returns a array of the following items: Name/Phone number/Email address, or null if the command fails</returns>
         public string[] OwnerInfo()
         {
             try
@@ -711,6 +784,10 @@ namespace NefitSharp
             return null;
         }
 
+        /// <summary>
+        /// Returns the installer information filled in on the Easy app
+        /// </summary>
+        /// <returns>Returns a array of the following items: Name/Company/Telephone number/Email address, or null if the command fails</returns>
         public string[] InstallerInfo()
         {
             try
@@ -728,6 +805,11 @@ namespace NefitSharp
             return null;
         }
 
+        /// <summary>
+        /// Returns the serial number of the Nefit Easy thermostat, this is not the serial number you enter for communication
+        /// Use <see cref="EasyUUID"/> for that
+        /// </summary>
+        /// <returns>The serial number of the Nefit Easy thermostat, or null if the command fails</returns>
         public string EasySerial()
         {
             try
@@ -740,7 +822,11 @@ namespace NefitSharp
             }
             return null;
         }
-
+        
+        /// <summary>
+        /// Returns the firmware version of the Nefit Easy thermostat
+        /// </summary>
+        /// <returns>Firmware version or null if the command fails</returns>
         public string EasyFirmware()
         {
             try
@@ -754,6 +840,10 @@ namespace NefitSharp
             return null;
         }
 
+        /// <summary>
+        /// Returns the hardware revision of the Nefit Easy thermostat
+        /// </summary>
+        /// <returns>Hardware revision or null if the command fails</returns>
         public string EasyHardware()
         {
             try
@@ -767,6 +857,10 @@ namespace NefitSharp
             return null;
         }
 
+        /// <summary>
+        /// Returns the UUID of the Easy thermostat, this is the number you enter in as serial when connecting
+        /// </summary>
+        /// <returns>The UUID of the Nefit Easy thermostat, or null if the command fails</returns>
         public string EasyUUID()
         {
             try
@@ -781,13 +875,12 @@ namespace NefitSharp
         }
 
         /// <summary>       
-        /// Needs to be converted into an enum   
+        /// Returns the way the Easy is updated
         /// </summary>       
-        /// <returns></returns>
+        /// <returns>The way the Easy is updated, or null if the command fails</returns>
         public string EasyUpdateStrategy()
         {
-
-
+            //TODO: Convert into enum
             try
             {
                 return Get<string>("/gateway/update/strategy");
@@ -799,6 +892,10 @@ namespace NefitSharp
             return null;
         }
 
+        /// <summary>
+        /// Returns the serial of the central heating appliance
+        /// </summary>
+        /// <returns>The serial of the central heating appliance, or null if the command fails</returns>
         public string CVSerial()
         {
             try
@@ -812,6 +909,10 @@ namespace NefitSharp
             return null;
         }
 
+        /// <summary>
+        /// Returns the version of the central heating appliance
+        /// </summary>
+        /// <returns>The version of the central heating appliance, or null if the command fails</returns>
         public string CVVersion()
         {
             try
@@ -825,6 +926,10 @@ namespace NefitSharp
             return null;
         }
 
+        /// <summary>
+        /// Returns the make of the burner in the central heating appliance 
+        /// </summary>
+        /// <returns>The make of the burner in the central heating appliance, or null if the command fails</returns>
         public string CVBurnerMake()
         {
             try
@@ -838,39 +943,13 @@ namespace NefitSharp
             return null;
         }
 
-        public bool? ThermalDesinfectEnabled()
-        {
-            try
-            {
-                return Get<string>("/dhwCircuits/dhwA/thermaldesinfect/state") == "on";
-            }
-            catch (Exception e)
-            {
-                ExceptionEvent(e);
-            }
-            return null;
-        }
-
-        public DateTime NextThermalDesinfect()
-        {
-            try
-            {
-                int nextTermalTime = Get<int>("/dhwCircuits/dhwA/thermaldesinfect/time");
-                string nextTermalDay = Get<string>("/dhwCircuits/dhwA/thermaldesinfect/weekday");
-                if (nextTermalDay != null)
-                {
-                    return Utils.GetNextDate(nextTermalDay, nextTermalTime);
-                }
-            }
-            catch (Exception e)
-            {
-                ExceptionEvent(e);
-            }
-            return new DateTime();
-        }
-
+        /// <summary>
+        /// Returns the proximity setting of the Nefit Easy
+        /// </summary>
+        /// <returns>The proximity setting of the Easy or null if the command fails</returns>
         public string EasySensitivity()
         {
+            //TODO: convert to enum
             try
             {
                 return Get<string>("/ecus/rrc/pirSensitivity");
@@ -882,6 +961,10 @@ namespace NefitSharp
             return null;
         }
 
+        /// <summary>
+        /// Returns the temperature step setting when changing setpoints 
+        /// </summary>
+        /// <returns>The temperature step setting for setpoints or <see cref="Double.NaN"/> if the command fails</returns>
         public double EasyTemperatureStep()
         {
             try
@@ -899,6 +982,10 @@ namespace NefitSharp
             return Double.NaN;
         }
 
+        /// <summary>
+        /// Returns the room temperature offset setting used by the Nefit Easy 
+        /// </summary>
+        /// <returns>The room temperature offset setting or <see cref="Double.NaN"/> if the command fails</returns>
         public double EasyTemperatureOffset()
         {
             try
@@ -912,6 +999,11 @@ namespace NefitSharp
             return Double.NaN;
         }
 
+        /// <summary>
+        /// Changes the hot water mode to on or off when the Easy is in clock program mode
+        /// </summary>
+        /// <param name="onOff">True if the hotwater needs to be turned on, false if off</param>
+        /// <returns>True if the command succeeds, false if it fails</returns>
         public bool SetHotWaterModeClockProgram(bool onOff)
         {
             try
@@ -930,6 +1022,11 @@ namespace NefitSharp
             return false;
         }
 
+        /// <summary>
+        /// Changes the hot water mode to on or off when the Easy is in manual program mode
+        /// </summary>
+        /// <param name="onOff">True if the hotwater needs to be turned on, false if off</param>
+        /// <returns>True if the command succeeds, false if it fails</returns>
         public bool SetHotWaterModeManualProgram(bool onOff)
         {
             try
@@ -948,37 +1045,53 @@ namespace NefitSharp
             return false;
         }
 
+        /// <summary>
+        /// Switches the Easy between manual and program mode
+        /// </summary>
+        /// <param name="newMode">Use <see cref="UserModes.Manual"/> to switch to manual mode, use <see cref="UserModes.Clock"/> to switch to program mode, <see cref="UserModes.Unknown"/> is not supported</param>
+        /// <returns>True if the command succeeds, false if it fails</returns>
         public bool SetUserMode(UserModes newMode)
         {
-            try
+            if (newMode != UserModes.Unknown)
             {
-                return Put("/heatingCircuits/hc1/usermode", "{\"value\":" + newMode.ToString().ToLower() + "}");
-            }
-            catch (Exception e)
-            {
-                ExceptionEvent(e);
+                try
+                {
+                    return Put("/heatingCircuits/hc1/usermode", "{\"value\":" + newMode.ToString().ToLower() + "}");
+                }
+                catch (Exception e)
+                {
+                    ExceptionEvent(e);
+                }
             }
             return false;
         }
 
+        /// <summary>
+        /// Changes the setpoint temperature
+        /// </summary>
+        /// <param name="temperature">The new temperature (in degrees celcius). The new setpoint must be between 5 and 30 degrees celcius</param>
+        /// <returns>True if the command succeeds, false if it fails</returns>
         public bool SetTemperature(double temperature)
         {
-            try
+            if (temperature >= 5 && temperature <= 30)
             {
-                bool result = Put("/heatingCircuits/hc1/temperatureRoomManual", "{\"value\":" + Utils.DoubleToString(temperature) + "}");
-                if (result)
+                try
                 {
-                    result = Put("/heatingCircuits/hc1/manualTempOverride/status", "{\"value\":'on'}");
+                    bool result = Put("/heatingCircuits/hc1/temperatureRoomManual", "{\"value\":" + Utils.DoubleToString(temperature) + "}");
+                    if (result)
+                    {
+                        result = Put("/heatingCircuits/hc1/manualTempOverride/status", "{\"value\":'on'}");
+                    }
+                    if (result)
+                    {
+                        result = Put("/heatingCircuits/hc1/manualTempOverride/temperature", "{\"value\":" + Utils.DoubleToString(temperature) + "}");
+                    }
+                    return result;
                 }
-                if (result)
+                catch (Exception e)
                 {
-                    result = Put("/heatingCircuits/hc1/manualTempOverride/temperature", "{\"value\":" + Utils.DoubleToString(temperature) + "}");
+                    ExceptionEvent(e);
                 }
-                return result;
-            }
-            catch (Exception e)
-            {
-                ExceptionEvent(e);
             }
             return false;
         }
@@ -989,201 +1102,325 @@ namespace NefitSharp
 
         #region Async commands    
 
-        public async Task<bool> ConnectAsync()
-        {
-            return await Task.Run(() =>{return Connect();});
-        }
-
+        /// <summary>
+        /// Returns the active user program, can only be 0, 1 or 2
+        /// Use this in the <see cref="Program"/> command to get the active program
+        /// </summary>
+        /// <returns>A value between 0 and 2, or <see cref="int.MinValue"/> if the command fails</returns>
         public async Task<int> ActiveProgramAsync()
         {
             return await Task.Run(() => { return ActiveProgram(); });
         }
-
+        /// <summary>
+        /// Returns the requested user program defined in switch points
+        /// </summary>
+        /// <param name="programNumber">The program number which to request from the Easy</param>
+        /// <returns>An array of ProgramSwitches (converted to the next timestamp of the switch) or null if the command fails</returns>
         public async Task<ProgramSwitch[]> ProgramAsync(int index)
         {
             return await Task.Run(() => { return Program(index); });
         }
-
+        /// <summary>
+        /// Returns the user definable switch point names, there are 2 custom names configurable
+        /// </summary>
+        /// <param name="nameIndex">The index of the name, can only be 0 or 1</param>
+        /// <returns>The name of the switchpoint or null if the command fails</returns>
         public async Task<string> SwitchpointNameAsync(int nameIndex)
         {
             return await Task.Run(() => { return SwitchpointName(nameIndex); });
         }
-
+        /// <summary>
+        /// Indicates if the fireplace function is currently activated
+        /// </summary>
+        /// <returns>True/false or null if the command fails</returns>
         public async Task<bool?> FireplaceFunctionActiveAsync()
         {
             return await Task.Run(() => { return FireplaceFunctionActive(); });
         }
-
+        /// <summary>
+        /// Indicates if the preheating setting is active
+        /// </summary>
+        /// <returns>True/false or null if the command fails</returns>
         public async Task<bool?> PreheatingActiveAsync()
         {
             return await Task.Run(() => { return PreheatingActive(); });
         }
-
+        /// <summary>
+        /// Returns the outdoor temperature measured by the Easy or collected over the internet
+        /// </summary>
+        /// <returns>The outdoor temperature or <see cref="Double.NaN"/> if the command fails</returns>
         public async Task<double> OutdoorTemperatureAsync()
         {
             return await Task.Run(() => { return OutdoorTemperature(); });
         }
 
+        /// <summary>
+        /// Inidicates the Easy service status
+        /// </summary>
+        /// <returns>Returns a string containing the Easy service status or null if the command fails</returns>
         public async Task<string> EasyServiceStatusAsync()
         {
             return await Task.Run(() => { return EasyServiceStatus(); });
         }
 
+        /// <summary>
+        /// Returns the status of the ignition (presumably if the CV is heating)
+        /// </summary>
+        /// <returns>True/false or null if the command fails</returns>
         public async Task<bool?> IgnitionStatusAsync()
         {
             return await Task.Run(() => { return IgnitionStatus(); });
         }
-
+        /// <summary>
+        /// Returns the status of the CV circuit, if a refill is needed
+        /// </summary>
+        /// <returns>True/false or null if the command fails</returns>
         public async Task<bool?> RefillNeededStatusAsync()
         {
             return await Task.Run(() => { return RefillNeededStatus(); });
         }
-
+        /// <summary>
+        /// Unknown
+        /// </summary>
+        /// <returns>True/false or null if the command fails</returns>
         public async Task<bool?> ClosingValveStatusAsync()
         {
             return await Task.Run(() => { return ClosingValveStatus(); });
         }
-
+        /// <summary>
+        /// Unknown
+        /// </summary>
+        /// <returns>True/false or null if the command fails</returns>
         public async Task<bool?> ShortTappingStatusAsync()
         {
             return await Task.Run(() => { return ShortTappingStatus(); });
         }
-
+        /// <summary>
+        /// Indiciates if the Easy detected a leak
+        /// </summary>
+        /// <returns>True/false or null if the command fails</returns>
         public async Task<bool?> SystemLeakingStatusAsync()
         {
             return await Task.Run(() => { return SystemLeakingStatus(); });
         }
-
+        /// <summary>
+        /// Returns the current pressure of the CV circuit
+        /// </summary>
+        /// <returns>The presure of the CV circuit or <see cref="Double.NaN"/> if the command fails</returns>
         public async Task<double> SystemPressureAsync()
         {
             return await Task.Run(() => { return SystemPressure(); });
         }
-
+        /// <summary>
+        /// Returns the current tempreature of the supply temperature of the CV circuit
+        /// </summary>
+        /// <returns>The presure of the CV circuit or <see cref="Double.NaN"/> if the command fails</returns>
         public async Task<double> CentralHeatingSupplyTemperatureAsync()
         {
             return await Task.Run(() => { return CentralHeatingSupplyTemperature(); });
         }
-
+        /// <summary>
+        /// Returns the current status of the central heating, note; the descriptions are in Dutch
+        /// </summary>
+        /// <returns>The current status of the central heating or null if the command fails</returns>
         public async Task<StatusCode> GetStatusCodeAsync()
         {
             return await Task.Run(() => { return GetStatusCode(); });
         }
-
+        /// <summary>
+        /// Returns the current switch point (in other words what the CV is currently doing)
+        /// </summary>
+        /// <returns>The current switch point of the central heating or null if the command fails</returns>
         public async Task<ProgramSwitch> GetCurrentSwitchPointAsync()
         {
             return await Task.Run(() => { return GetCurrentSwitchPoint(); });
         }
-
+        /// <summary>
+        /// Returns the next switch point (in other words what the CV will be doing)
+        /// </summary>
+        /// <returns>The current switch point of the central heating or null if the command fails</returns>
         public async Task<ProgramSwitch> GetNextSwitchPointAsync()
         {
             return await Task.Run(() => { return GetNextSwitchPoint(); });
         }
-
+        /// <summary>
+        /// Returns the location of the Easy device
+        /// </summary>
+        /// <returns>Location of the easy device, or null if the command fails</returns>
         public async Task<Location> GetLocationAsync()
         {
             return await Task.Run(() => { return GetLocation(); });
         }
-
+        /// <summary>
+        /// Returns all daily gas usage samples collected by the Easy device
+        /// </summary>
+        /// <returns>An array of gas samples,or null if the command fails</returns>
         public async Task<GasSample[]> GetGasusageAsync()
         {
             return await Task.Run(() => { return GetGasusage(); });
         }
-
+        /// <summary>
+        /// Returns the overall status presented in the UI
+        /// </summary>
+        /// <returns>The UI status, or null if the command fails</returns>
         public async Task<UIStatus> GetUIStatusAsync()
         {
             return await Task.Run(() => { return GetUIStatus(); });
         }
-
+        /// <summary>
+        /// Returns the owner information filled in on the Easy app
+        /// </summary>
+        /// <returns>Returns a array of the following items: Name/Phone number/Email address, or null if the command fails</returns>
         public async Task<string[]> OwnerInfoAsync()
         {
             return await Task.Run(() => { return OwnerInfo(); });
         }
-
+        /// <summary>
+        /// Returns the installer information filled in on the Easy app
+        /// </summary>
+        /// <returns>Returns a array of the following items: Name/Company/Telephone number/Email address, or null if the command fails</returns>
         public async Task<string[]> InstallerInfoAsync()
         {
             return await Task.Run(() => { return InstallerInfo(); });
         }
 
+        /// <summary>
+        /// Returns the serial number of the Nefit Easy thermostat, this is not the serial number you enter for communication
+        /// Use <see cref="EasyUUID"/> for that
+        /// </summary>
+        /// <returns>The serial number of the Nefit Easy thermostat, or null if the command fails</returns>
         public async Task<string> EasySerialAsync()
         {
             return await Task.Run(() => { return EasySerial(); });
         }
-
+        /// <summary>
+        /// Returns the firmware version of the Nefit Easy thermostat
+        /// </summary>
+        /// <returns>Firmware version or null if the command fails</returns>
         public async Task<string> EasyFirmwareAsync()
         {
             return await Task.Run(() => { return EasyFirmware(); });
         }
-
+        /// <summary>
+        /// Returns the hardware revision of the Nefit Easy thermostat
+        /// </summary>
+        /// <returns>Hardware revision or null if the command fails</returns>
         public async Task<string> EasyHardwareAsync()
         {
             return await Task.Run(() => { return EasyHardware(); });
         }
-
+        /// <summary>
+        /// Returns the UUID of the Easy thermostat, this is the number you enter in as serial when connecting
+        /// </summary>
+        /// <returns>The UUID of the Nefit Easy thermostat, or null if the command fails</returns>
         public async Task<string> EasyUUIDAsync()
         {
             return await Task.Run(() => { return EasyUUID(); });
         }
-
+        /// <summary>       
+        /// Returns the way the Easy is updated
+        /// </summary>       
+        /// <returns>The way the Easy is updated, or null if the command fails</returns>
         public async Task<string> EasyUpdateStrategyAsync()
         {
             return await Task.Run(() => { return EasyUpdateStrategy(); });
         }
-
+        /// <summary>
+        /// Returns the serial of the central heating appliance
+        /// </summary>
+        /// <returns>The serial of the central heating appliance, or null if the command fails</returns>
         public async Task<string> CVSerialAsync()
         {
             return await Task.Run(() => { return CVSerial(); });
         }
-
+        /// <summary>
+        /// Returns the version of the central heating appliance
+        /// </summary>
+        /// <returns>The version of the central heating appliance, or null if the command fails</returns>
         public async Task<string> CVVersionAsync()
         {
             return await Task.Run(() => { return CVVersion(); });
         }
-
+        /// <summary>
+        /// Returns the make of the burner in the central heating appliance 
+        /// </summary>
+        /// <returns>The make of the burner in the central heating appliance, or null if the command fails</returns>
         public async Task<string> CVBurnerMakeAsync()
         {
             return await Task.Run(() => { return CVBurnerMake(); });
         }
-
+        /// <summary>
+        /// Indiciates if the thermal desinfect program is enabled
+        /// </summary>
+        /// <returns>True/false or null if the command fails</returns>
         public async Task<bool?> ThermalDesinfectEnabledAsync()
         {
             return await Task.Run(() => { return ThermalDesinfectEnabled(); });
         }
-
+        /// <summary>
+        /// Returns the timestamp of the next scheduled thermal desinfect.
+        /// </summary>
+        /// <returns>The date/time of the next thermal desinfect or a datetime with 0 ticks if the command fails</returns>
         public async Task<DateTime> NextThermalDesinfectAsync()
         {
             return await Task.Run(() => { return NextThermalDesinfect(); });
         }
-
+        /// <summary>
+        /// Returns the proximity setting of the Nefit Easy
+        /// </summary>
+        /// <returns>The proximity setting of the Easy or null if the command fails</returns>
         public async Task<string> EasySensitivityAsync()
         {
             return await Task.Run(() => { return EasySensitivity(); });
         }
-
+        /// <summary>
+        /// Returns the temperature step setting when changing setpoints 
+        /// </summary>
+        /// <returns>The temperature step setting for setpoints or <see cref="Double.NaN"/> if the command fails</returns>
         public async Task<double> EasyTemperatureStepAsync()
         {
             return await Task.Run(() => { return EasyTemperatureStep(); });
         }
-
+        /// <summary>
+        /// Returns the room temperature offset setting used by the Nefit Easy 
+        /// </summary>
+        /// <returns>The room temperature offset setting or <see cref="Double.NaN"/> if the command fails</returns>
         public async Task<double> EasyTemperatureOffsetAsync()
         {
             return await Task.Run(() => { return EasyTemperatureOffset(); });
         }
-
+        /// <summary>
+        /// Changes the hot water mode to on or off when the Easy is in clock program mode
+        /// </summary>
+        /// <param name="onOff">True if the hotwater needs to be turned on, false if off</param>
+        /// <returns>True if the command succeeds, false if it fails</returns>
         public async Task<bool> SetHotWaterModeClockProgramAsync(bool onOff)
         {
             return await Task.Run(() => { return SetHotWaterModeClockProgram(onOff); });
         }
-
+        /// <summary>
+        /// Changes the hot water mode to on or off when the Easy is in manual program mode
+        /// </summary>
+        /// <param name="onOff">True if the hotwater needs to be turned on, false if off</param>
+        /// <returns>True if the command succeeds, false if it fails</returns>
         public async Task<bool> SetHotWaterModeManualProgramAsync(bool onOff)
         {
             return await Task.Run(() => { return SetHotWaterModeManualProgram(onOff); });
         }
-
+        /// <summary>
+        /// Switches the Easy between manual and program mode
+        /// </summary>
+        /// <param name="newMode">Use <see cref="UserModes.Manual"/> to switch to manual mode, use <see cref="UserModes.Clock"/> to switch to program mode, <see cref="UserModes.Unknown"/> is not supported</param>
+        /// <returns>True if the command succeeds, false if it fails</returns>
         public async Task<bool> SetUserModeAsync(UserModes newMode)
         {
             return await Task.Run(() => { return SetUserMode(newMode); });
         }
-
+        /// <summary>
+        /// Changes the setpoint temperature
+        /// </summary>
+        /// <param name="temperature">The new temperature (in degrees celcius). The new setpoint must be between 5 and 30 degrees celcius</param>
+        /// <returns>True if the command succeeds, false if it fails</returns>
         public async Task<bool> SetTemperatureAsync(double temperature)
         {
             return await Task.Run(() => { return SetTemperature(temperature); });

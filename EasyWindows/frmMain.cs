@@ -87,7 +87,7 @@ namespace DigitalThermostat
         private async void Start()
         {
             _temperatureStepDetermined = false;
-            _currentStatus = null;
+            _currentStatus = null;            
             _currentScreenMode = ScreenMode.MainScreen;
             _client = new NefitClient(Settings.Default.serial, Settings.Default.accessKey, Settings.Default.password);
             _client.XMLLog += Log;
