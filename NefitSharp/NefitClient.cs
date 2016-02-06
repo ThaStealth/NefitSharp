@@ -50,7 +50,6 @@ namespace NefitSharp
         /// <summary>        
         /// Indicates if there was an general authentication error                
         /// </summary>        
-
         public bool AuthenticationError
         {
             get { return !_serialAccessKeyValid || !_passwordValid; }
@@ -308,6 +307,12 @@ namespace NefitSharp
 
         #region Sync Methods    
 
+        #region Programs
+        /// <summary>
+        /// Returns the active user program, can only be 0, 1 or 2
+        /// Use this in the <see cref="Program"/> command to get the active program
+        /// </summary>
+        /// <returns>A value between 0 and 2, or <see cref="int.MinValue"/> if the command fails</returns>
         public int ActiveProgram()
         {
             try
@@ -321,13 +326,18 @@ namespace NefitSharp
             return int.MinValue;
         }
 
-        public ProgramSwitch[] Program(int index)
+        /// <summary>
+        /// Returns the requested user program defined in switch points
+        /// </summary>
+        /// <param name="programNumber">The program number which to request from the Easy</param>
+        /// <returns>An array of ProgramSwitches (converted to the next timestamp of the switch) or null if the command fails</returns>
+        public ProgramSwitch[] Program(int programNumber)
         {
             try
             {
-                if (index >= 0 && index < 3)
+                if (programNumber >= 0 && programNumber < 3)
                 {
-                    NefitProgram[] program0 = Get<NefitProgram[]>("/ecus/rrc/userprogram/program" + index);
+                    NefitProgram[] program0 = Get<NefitProgram[]>("/ecus/rrc/userprogram/program" + programNumber);
                     if (program0 != null)
                     {
                         return Utils.ParseProgram(program0);
@@ -341,10 +351,16 @@ namespace NefitSharp
             return null;
         }
 
+        /// <summary>
+        /// Returns the user definable switch point names, there are 2 custom names configurable
+        /// </summary>
+        /// <param name="nameIndex">The index of the name, can only be 0 or 1</param>
+        /// <returns>The name of the switchpoint or null if the command fails</returns>
         public string SwitchpointName(int nameIndex)
         {
             try
             {
+                nameIndex--;
                 if (nameIndex >= 1 && nameIndex <= 2)
                 {
                     return Get<string>("/ecus/rrc/userprogram/userswitchpointname" + nameIndex);
@@ -357,7 +373,13 @@ namespace NefitSharp
             return null;
         }
 
-        public bool FireplaceFunctionActive()
+        #endregion
+
+        /// <summary>
+        /// Indicates if the fireplace function is currently activated
+        /// </summary>
+        /// <returns>True/false or null if the command fails</returns>
+        public bool? FireplaceFunctionActive()
         {
             try
             {
@@ -367,10 +389,14 @@ namespace NefitSharp
             {
                 ExceptionEvent(e);
             }
-            return false;
+            return null;
         }
 
-        public bool PreheatingActive()
+        /// <summary>
+        /// Indicates if the preheating setting is active
+        /// </summary>
+        /// <returns>True/false or null if the command fails</returns>
+        public bool? PreheatingActive()
         {
             try
             {
@@ -380,9 +406,13 @@ namespace NefitSharp
             {
                 ExceptionEvent(e);
             }
-            return false;
+            return null;
         }
 
+        /// <summary>
+        /// Returns the outdoor temperature measured by the Easy or collected over the internet
+        /// </summary>
+        /// <returns>The outdoor temperature or <see cref="Double.NaN"/> if the command fails</returns>
         public double OutdoorTemperature()
         {
             try
@@ -396,6 +426,10 @@ namespace NefitSharp
             return Double.NaN;
         }
 
+        /// <summary>
+        /// Inidicates the Easy service status
+        /// </summary>
+        /// <returns>Returns a string containing the Easy service status or null if the command fails</returns>
         public string EasyServiceStatus()
         {
             try
@@ -409,7 +443,11 @@ namespace NefitSharp
             return null;
         }
 
-        public bool IgnitionStatus()
+        /// <summary>
+        /// Returns the status of the ignition (presumably if the CV is heating)
+        /// </summary>
+        /// <returns>True/false or null if the command fails</returns>
+        public bool? IgnitionStatus()
         {
             try
             {
@@ -419,10 +457,14 @@ namespace NefitSharp
             {
                 ExceptionEvent(e);
             }
-            return false;
+            return null;
         }
 
-        public bool RefillNeededStatus()
+        /// <summary>
+        /// Returns the status of the CV circuit, if a refill is needed
+        /// </summary>
+        /// <returns>True/false or null if the command fails</returns>
+        public bool? RefillNeededStatus()
         {
             try
             {
@@ -432,10 +474,14 @@ namespace NefitSharp
             {
                 ExceptionEvent(e);
             }
-            return false;
+            return null;
         }
 
-        public bool ClosingValveStatus()
+        /// <summary>
+        /// Unknown
+        /// </summary>
+        /// <returns>True/false or null if the command fails</returns>
+        public bool? ClosingValveStatus()
         {
             try
             {
@@ -445,10 +491,14 @@ namespace NefitSharp
             {
                 ExceptionEvent(e);
             }
-            return false;
+            return null;
         }
 
-        public bool ShortTappingStatus()
+        /// <summary>
+        /// Unknown
+        /// </summary>
+        /// <returns>True/false or null if the command fails</returns>
+        public bool? ShortTappingStatus()
         {
             try
             {
@@ -458,10 +508,14 @@ namespace NefitSharp
             {
                 ExceptionEvent(e);
             }
-            return false;
+            return null;
         }
 
-        public bool SystemLeakingStatus()
+        /// <summary>
+        /// Indiciates if the Easy detected a leak
+        /// </summary>
+        /// <returns>True/false or null if the command fails</returns>
+        public bool? SystemLeakingStatus()
         {
             try
             {
@@ -471,9 +525,13 @@ namespace NefitSharp
             {
                 ExceptionEvent(e);
             }
-            return false;
+            return null;
         }
 
+        /// <summary>
+        /// Returns the current pressure of the CV circuit
+        /// </summary>
+        /// <returns>The presure of the CV circuit or <see cref="Double.NaN"/> if the command fails</returns>
         public double SystemPressure()
         {
             try
@@ -487,6 +545,10 @@ namespace NefitSharp
             return Double.NaN;
         }
 
+        /// <summary>
+        /// Returns the current tempreature of the supply temperature of the CV circuit
+        /// </summary>
+        /// <returns>The presure of the CV circuit or <see cref="Double.NaN"/> if the command fails</returns>
         public double CentralHeatingSupplyTemperature()
         {
             try
@@ -500,6 +562,10 @@ namespace NefitSharp
             return Double.NaN;
         }
 
+        /// <summary>
+        /// Returns the current status of the central heating, note; the descriptions are in Dutch
+        /// </summary>
+        /// <returns>The current status of the central heating or null if the command fails</returns>
         public StatusCode GetStatusCode()
         {
             try
@@ -515,6 +581,10 @@ namespace NefitSharp
             return null;
         }
 
+        /// <summary>
+        /// Returns the current switch point (in other words what the CV is currently doing)
+        /// </summary>
+        /// <returns>The current switch point of the central heating or null if the command fails</returns>
         public ProgramSwitch GetCurrentSwitchPoint()
         {
             try
@@ -532,6 +602,10 @@ namespace NefitSharp
             return null;
         }
 
+        /// <summary>
+        /// Returns the next switch point (in other words what the CV will be doing)
+        /// </summary>
+        /// <returns>The current switch point of the central heating or null if the command fails</returns>
         public ProgramSwitch GetNextSwitchPoint()
         {
             try
@@ -764,7 +838,7 @@ namespace NefitSharp
             return null;
         }
 
-        public bool ThermalDesinfectEnabled()
+        public bool? ThermalDesinfectEnabled()
         {
             try
             {
@@ -774,7 +848,7 @@ namespace NefitSharp
             {
                 ExceptionEvent(e);
             }
-            return false;
+            return null;
         }
 
         public DateTime NextThermalDesinfect()
@@ -935,12 +1009,12 @@ namespace NefitSharp
             return await Task.Run(() => { return SwitchpointName(nameIndex); });
         }
 
-        public async Task<bool> FireplaceFunctionActiveAsync()
+        public async Task<bool?> FireplaceFunctionActiveAsync()
         {
             return await Task.Run(() => { return FireplaceFunctionActive(); });
         }
 
-        public async Task<bool> PreheatingActiveAsync()
+        public async Task<bool?> PreheatingActiveAsync()
         {
             return await Task.Run(() => { return PreheatingActive(); });
         }
@@ -955,27 +1029,27 @@ namespace NefitSharp
             return await Task.Run(() => { return EasyServiceStatus(); });
         }
 
-        public async Task<bool> IgnitionStatusAsync()
+        public async Task<bool?> IgnitionStatusAsync()
         {
             return await Task.Run(() => { return IgnitionStatus(); });
         }
 
-        public async Task<bool> RefillNeededStatusAsync()
+        public async Task<bool?> RefillNeededStatusAsync()
         {
             return await Task.Run(() => { return RefillNeededStatus(); });
         }
 
-        public async Task<bool> ClosingValveStatusAsync()
+        public async Task<bool?> ClosingValveStatusAsync()
         {
             return await Task.Run(() => { return ClosingValveStatus(); });
         }
 
-        public async Task<bool> ShortTappingStatusAsync()
+        public async Task<bool?> ShortTappingStatusAsync()
         {
             return await Task.Run(() => { return ShortTappingStatus(); });
         }
 
-        public async Task<bool> SystemLeakingStatusAsync()
+        public async Task<bool?> SystemLeakingStatusAsync()
         {
             return await Task.Run(() => { return SystemLeakingStatus(); });
         }
@@ -1070,7 +1144,7 @@ namespace NefitSharp
             return await Task.Run(() => { return CVBurnerMake(); });
         }
 
-        public async Task<bool> ThermalDesinfectEnabledAsync()
+        public async Task<bool?> ThermalDesinfectEnabledAsync()
         {
             return await Task.Run(() => { return ThermalDesinfectEnabled(); });
         }
