@@ -1,3 +1,4 @@
+using System;
 using NefitSharp.Entities.Internal;
 
 namespace NefitSharp.Entities
@@ -10,7 +11,7 @@ namespace NefitSharp.Entities
         public BoilerIndicator BoilerIndicator { get; }
         public ControlMode Control { get; }
         public double TempOverrideDuration { get; }
-        public double CurrentSwitchpoint { get; }
+        public int CurrentProgramSwitch { get; }
         public bool PowerSaveMode { get; }
         public bool FireplaceMode { get; }
         public bool HotWaterAvailable { get; }
@@ -94,7 +95,7 @@ namespace NefitSharp.Entities
             }
             InHouseTemperature = Utils.StringToDouble(stat.IHT);
             TempOverrideDuration = Utils.StringToDouble(stat.TOD);
-            CurrentSwitchpoint = Utils.StringToDouble(stat.CSP);
+            CurrentProgramSwitch =Convert.ToInt32(stat.CSP);
             PowerSaveMode = stat.ESI == "on";
             FireplaceMode = stat.FPA == "on";
             TempOverride = stat.TOR == "on";

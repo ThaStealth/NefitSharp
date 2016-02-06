@@ -275,9 +275,13 @@ namespace DigitalThermostat
 
             if (_currentStatus.UserMode == UserModes.Clock)
             {
+                Pen whitePen = new Pen(Color.White, 16 * Settings.Default.scale);
+                for (int i = 0; i < 12; i++)
+                {                    
+                    e.Graphics.DrawArc(whitePen, 135*Settings.Default.scale, 144*Settings.Default.scale, 362*Settings.Default.scale, 362*Settings.Default.scale, 271 + (i * 29) + i, 28);             
+                }
                 if (_currentProgram != null)
                 {
-                    Pen whitePen = new Pen(Color.White, 16*Settings.Default.scale);
                     Pen bluePen = new Pen(_blueColor, 4*Settings.Default.scale);
                     Pen lightBluePen = new Pen(_lightBlueColor, 4*Settings.Default.scale);
                     Pen redPen = new Pen(_redColor, 4*Settings.Default.scale);
@@ -288,11 +292,7 @@ namespace DigitalThermostat
                         {
                             hour += 12;
                         }
-                        int segmentStart = 271 + (i*29) + i;
-                        e.Graphics.DrawArc(whitePen, 135*Settings.Default.scale, 144*Settings.Default.scale, 362*Settings.Default.scale, 362*Settings.Default.scale, segmentStart, 28);
-                        Pen p;
-
-                        bool showRedColor;
+                        
 
                         int segments;
                         if ((i == DateTime.Now.Hour%12 && _currentProgram[1].Timestamp.Hour - DateTime.Now.Hour < 12) || hour == _currentProgram[1].Timestamp.Hour)
@@ -308,6 +308,7 @@ namespace DigitalThermostat
 
                         for (int q = 0; q < segments; q++)
                         {
+                            bool showRedColor;
                             if (hour == DateTime.Now.Hour)
                             {
                                 if (_currentProgram[1].Timestamp.Hour - 12 <= hour)
@@ -353,6 +354,7 @@ namespace DigitalThermostat
                                     showRedColor = _currentProgram[1].On;
                                 }
                             }
+                            Pen p;
                             if (showRedColor)
                             {
                                 p = redPen;
@@ -360,16 +362,11 @@ namespace DigitalThermostat
                             else
                             {
                                 p = bluePen;
-                            }
-
-                            e.Graphics.DrawArc(p, 147*Settings.Default.scale, 156*Settings.Default.scale, 338*Settings.Default.scale, 338*Settings.Default.scale, segmentStart + ((28F/segments)*q), 28/segments);
+                            }                            
+                            e.Graphics.DrawArc(p, 147*Settings.Default.scale, 156*Settings.Default.scale, 338*Settings.Default.scale, 338*Settings.Default.scale, 271 + (i * 29) + i + ((28F/segments)*q), 28/segments);
                         }
                     }
                     CurrentTimeIndicator(e);
-                }
-                else
-                {
-                    e.Graphics.DrawArc(new Pen(Color.White, 16 * Settings.Default.scale), 135 * Settings.Default.scale, 144 * Settings.Default.scale, 362 * Settings.Default.scale, 362 * Settings.Default.scale, 0, 360);
                 }
             }
             else
@@ -579,14 +576,28 @@ namespace DigitalThermostat
                         _currentStatus = stat;
                         Invalidate();
                     }
-                    if (_currentProgram == null)
-                    {
+                    if ((_currentProgram == null && stat!=null && stat.ClockProgram == ClockProgram.Auto) || (_currentProgram != null && stat != null && _currentProgram.Length > 1 && (DateTime.Now >= _currentProgram[1].Timestamp)))
+                    {                        
                         ProgramSwitch curr = await _client.GetCurrentSwitchPointAsync();
                         ProgramSwitch next = await _client.GetNextSwitchPointAsync();
                         if (curr != null && next != null)
                         {
                             _currentProgram = new ProgramSwitch[] {curr, next};
                             Invalidate();
+                        }
+                        else 
+                        {
+                            //alternative route
+                            int activeProgram = await _client.ActiveProgramAsync();
+                            if (activeProgram >= 0 && activeProgram <= 2)
+                            {
+                                ProgramSwitch[] switches = await _client.ProgramAsync(activeProgram);
+                                if (switches != null)
+                                {
+                                    _currentProgram = new ProgramSwitch[] {switches[stat.CurrentProgramSwitch], switches[(stat.CurrentProgramSwitch + 1)%switches.Length]};
+                                    Invalidate();
+                                }
+                            }
                         }
                     }
 

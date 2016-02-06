@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
 #if !NET20 && !NET35
 using System.Threading.Tasks;
-#else
-using System.Threading;
 #endif
 using System.Xml;
 using agsXMPP;
@@ -24,7 +24,7 @@ namespace NefitSharp
         private const string cRrcContactPrefix = "rrccontact_";
         private const string cRrcGatewayPrefix = "rrcgateway_";
 
-        private const int cRequestTimeout = 5*1000;
+        private const int cRequestTimeout = 35*1000;
         private const int cCheckInterval = 100;
         private const int cKeepAliveInterval = 30*1000;
 
@@ -137,16 +137,12 @@ namespace NefitSharp
             }
             while (!Connected && SerialAccessKeyValid)
             {
-#if !NET20 && !NET35
-                Task.Delay(10).Wait();
-#else
                 Thread.Sleep(10);
-#endif
             }            
-            if (EasyUUID() != _serial)         
-            {
-                 Disconnect	();
-            }
+            //if (EasyUUID() != _serial)         
+            //{
+            //     Disconnect	();
+            //}
             return Connected;
         }
 
@@ -188,6 +184,10 @@ namespace NefitSharp
                             _lastMessage = header;
                         }
                     }
+                    else if (xmlDoc.DocumentElement != null && xmlDoc.DocumentElement.Name == "presence")
+                    {
+                        _readyForCommands = true;
+                    }
                     else if (xmlDoc.DocumentElement != null && (xmlDoc.DocumentElement.Name == "failure" && xmlDoc.FirstChild.FirstChild.Name == "not-authorized"))
                     {
                         _serialAccessKeyValid = false;
@@ -211,10 +211,7 @@ namespace NefitSharp
                 {
                     XmlDocument xmlDoc = new XmlDocument();
                     xmlDoc.LoadXml(xml);
-                    if (xmlDoc.DocumentElement != null && xmlDoc.DocumentElement.Name == "presence")
-                    {
-                        _readyForCommands = true;
-                    }
+                 
                 }
                 catch (Exception e)
                 {
@@ -248,11 +245,7 @@ namespace NefitSharp
                             }
                         }
                         timeout -= cCheckInterval;
-#if !NET20 && !NET35
-                        Task.Delay(cCheckInterval).Wait();
-#else
                         Thread.Sleep(cCheckInterval);
-#endif
                     }
                 }
                 catch (Exception e)
@@ -298,11 +291,7 @@ namespace NefitSharp
                             }
                         }
                         timeout -= cCheckInterval;
-#if !NET20 && !NET35
-                        Task.Delay(cCheckInterval).Wait();
-#else
                         Thread.Sleep(cCheckInterval);
-#endif
                     }
                 }
                 catch (Exception e)
@@ -313,11 +302,11 @@ namespace NefitSharp
             }
         }
 
-#endregion
+        #endregion
 
-#region Commands 
+        #region Commands 
 
-#region Sync Methods    
+        #region Sync Methods    
 
         public int ActiveProgram()
         {
@@ -920,11 +909,11 @@ namespace NefitSharp
             return false;
         }
 
-#endregion
+        #endregion
 
 #if !NET20 && !NET35
 
-#region Async commands    
+        #region Async commands    
 
         public async Task<bool> ConnectAsync()
         {
@@ -1126,10 +1115,10 @@ namespace NefitSharp
             return await Task.Run(() => { return SetTemperature(temperature); });
         }
 
-#endregion
+        # endregion
 
 #endif
 
-#endregion
+        #endregion
     }
 }
