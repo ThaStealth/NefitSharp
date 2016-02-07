@@ -1,8 +1,13 @@
 namespace NefitSharp.Entities
 {
+    public enum EasyUpdateStrategy
+    {
+        Automatic, Unknown
+    }
+
     public enum EasySensitivity
     {
-        Low,High,Unknown
+        Disabled,Low, High,Unknown
     }
     public enum OperationModes
     {

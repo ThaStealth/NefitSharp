@@ -13,8 +13,16 @@ namespace NefitSharp
             List<ProgramSwitch> programs2 = new List<ProgramSwitch>();
             foreach (NefitProgram prog in proag)
             {
-                programs2.Add(new ProgramSwitch(prog));
+                if (prog.active=="on")
+                {
+                    programs2.Add(new ProgramSwitch(prog));
+                }
             }
+            programs2.Sort(
+                delegate(ProgramSwitch p1, ProgramSwitch p2)
+                {
+                    return p1.Timestamp.CompareTo(p2.Timestamp);
+                });
             return programs2.ToArray();
         }
         internal static string DoubleToString(double d)

@@ -3,27 +3,25 @@ using NefitSharp.Entities.Internal;
 
 namespace NefitSharp.Entities
 {
+    public enum ProgramName
+    {
+        Sleep,Awake,LeaveHome,Home,OtherPeriod1,OtherPeriod2
+    }   
+
     public class ProgramSwitch
     {
         public DateTime Timestamp { get; }
 
-        public bool On { get; }
+        public ProgramName Name { get; }
 
         public double Temperature { get; }
 
-        internal ProgramSwitch(string day,int time, bool on, double temperature)
-        {
-            DateTime now = Utils.GetNextDate(day, time);
-            Timestamp = now;
-            On = on;
-            Temperature = temperature;
-        }
 
         internal ProgramSwitch(NefitSwitch prog)
         {
             DateTime now = Utils.GetNextDate(prog.d, prog.t);
             Timestamp = now;
-            On = prog.dhw == "on";
+            //On = prog.dhw == "on";
             Temperature = prog.T;
         }
 
@@ -31,7 +29,7 @@ namespace NefitSharp.Entities
         {
             DateTime now = Utils.GetNextDate(prog.d, prog.t);
             Timestamp = now;
-            On = prog.active == "on";
+            Name = (ProgramName) prog.name;
             Temperature = prog.T;            
         }
     }

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
 #if !NET20 && !NET35
 using System.Threading.Tasks;
@@ -14,7 +13,19 @@ using Newtonsoft.Json;
 namespace NefitSharp
 {
     public delegate void ExceptionDelegate(Exception e);
+
     public delegate void CommunicationLogDelegate(string text);
+
+    public enum NefitConnectionStatus
+    {
+        Disconnected,
+        Connecting,
+        Authenticating,
+        AuthenticationTest,
+        InvalidSerialAccessKey,
+        InvalidPassword,
+        Connected
+    }
 
     public class NefitClient
     {
@@ -36,56 +47,26 @@ namespace NefitSharp
         private NefitHTTPResponse _lastMessage;
         private readonly object _lockObj;
         private readonly object _communicationLock;
-        private bool _serialAccessKeyValid;
-        private bool _passwordValid;
-        private bool _readyForCommands;
+        private NefitConnectionStatus _connectionStatus;
 
         /// <summary>      
         /// Subscribe to this event if you want to get notified if an internal exception occurs.        
         /// </summary>        
-        public event ExceptionDelegate ExceptionEvent = delegate {};
+        public event ExceptionDelegate ExceptionEvent = delegate { };
 
-        public event CommunicationLogDelegate XMLLog = delegate { }; 
+        /// <summary>
+        /// Events which can be used to log the XML in/output (debug purposes only)
+        /// </summary>
+        public event CommunicationLogDelegate XmlLog = delegate { };
 
-        /// <summary>        
-        /// Indicates if there was an general authentication error                
-        /// </summary>        
-        public bool AuthenticationError
+        /// <summary>
+        /// Indicates the current status of the connection.
+        /// </summary>
+        public NefitConnectionStatus ConnectionStatus
         {
-            get { return !_serialAccessKeyValid || !_passwordValid; }
+            get { return _connectionStatus; }
         }
 
-        /// <summary>        
-        /// Indicates if the used serial and access keys are valid        
-        /// </summary> 
-        public bool SerialAccessKeyValid
-        {
-            get { return _serialAccessKeyValid; }
-        }
-
-        /// <summary>        
-        /// Indicates if the used password is valid        
-        /// </summary>     
-        public bool PasswordValid
-        {
-            get { return _passwordValid; }
-        }
-
-        /// <summary>        
-        /// Indicates if the connection has been successfully established        
-        /// Use <see cref="AuthenticationError"/>  to check if the authentication is also valid.        
-        /// </summary>   
-        public bool Connected
-        {
-            get
-            {
-                if (_client == null)
-                {
-                    return false;
-                }
-                return _client.XmppConnectionState == XmppConnectionState.SessionStarted && _readyForCommands;
-            }
-        }
 
         /// <summary>      
         ///  Constructor of the NefitClient     
@@ -95,6 +76,7 @@ namespace NefitSharp
         ///  <param name="password">The serial of your Nefit Easy (which you configured in the App)</param>   
         public NefitClient(string serial, string accesskey, string password)
         {
+            _connectionStatus = NefitConnectionStatus.Disconnected;
             _lockObj = new object();
             _communicationLock = new object();
             _lastMessage = null;
@@ -108,7 +90,7 @@ namespace NefitSharp
         /// <summary>        
         /// Starts the communication to the Bosch server backend with the credentials provided in the constructor        
         /// </summary>     
-        ///  <returns>When returns false, check <see cref="PasswordValid"/> and <see cref="SerialAccessKeyValid"/> to see if there was an authentication problem</returns>  
+        ///  <returns>When returns false, check <see cref="ConnectionStatus"/> to see if there was an authentication problem</returns>  
         public bool Connect()
         {
             if (_client != null)
@@ -117,11 +99,9 @@ namespace NefitSharp
             }
             try
             {
-                _serialAccessKeyValid = true;
-                _passwordValid = true;
-                _readyForCommands = false;
-                _client = new XmppClientConnection(cHost);                
-                _client.Open(cRrcContactPrefix + _serial, cAccesskeyPrefix + _accessKey);              
+                _connectionStatus = NefitConnectionStatus.Connecting;
+                _client = new XmppClientConnection(cHost);
+                _client.Open(cRrcContactPrefix + _serial, cAccesskeyPrefix + _accessKey);
                 _client.KeepAliveInterval = cKeepAliveInterval;
                 _client.Resource = "";
                 _client.AutoAgents = false;
@@ -134,16 +114,28 @@ namespace NefitSharp
             {
                 ExceptionEvent(e);
             }
-            while (!Connected && SerialAccessKeyValid)
+            int countDown = cRequestTimeout;
+            while ((_connectionStatus == NefitConnectionStatus.Connecting || _connectionStatus == NefitConnectionStatus.Authenticating) && countDown >= 0)
             {
-                Thread.Sleep(10);
+                countDown -= cCheckInterval;
+                Thread.Sleep(cCheckInterval);
             }
-            if (EasyUUID() != _serial)
+            if (_connectionStatus == NefitConnectionStatus.AuthenticationTest)
+            {
+                if (GetEasyUUID() == _serial)
+                {
+                    _connectionStatus = NefitConnectionStatus.Connected;
+                }
+                else
+                {
+                    Disconnect();
+                }
+            }
+            else
             {
                 Disconnect();
             }
-            return Connected;
-
+            return _connectionStatus == NefitConnectionStatus.Connected;
         }
 
 #if !NET20 && !NET35
@@ -151,7 +143,7 @@ namespace NefitSharp
         /// <summary>        
         /// Starts the communication to the Bosch server backend with the credentials provided in the constructor        
         /// </summary>     
-        ///  <returns>When returns false, check <see cref="PasswordValid"/> and <see cref="SerialAccessKeyValid"/> to see if there was an authentication problem</returns>  
+        ///  <returns>When returns false, check <see cref="ConnectionStatus"/> to see if there was an authentication problem</returns>  
         public async Task<bool> ConnectAsync()
         {
             return await Task.Run(() => { return Connect(); });
@@ -172,6 +164,11 @@ namespace NefitSharp
                     _client.Close();
                     _client = null;
                 }
+
+                if (_connectionStatus != NefitConnectionStatus.InvalidSerialAccessKey && _connectionStatus != NefitConnectionStatus.InvalidPassword)
+                {
+                    _connectionStatus = NefitConnectionStatus.Disconnected;
+                }
             }
             catch (Exception e)
             {
@@ -181,7 +178,7 @@ namespace NefitSharp
 
         private void XmppRead(object sender, string xml)
         {
-            XMLLog("XML << " + xml);
+            XmlLog("XML << " + xml);
             if (!xml.StartsWith("<stream"))
             {
                 try
@@ -198,11 +195,11 @@ namespace NefitSharp
                     }
                     else if (xmlDoc.DocumentElement != null && xmlDoc.DocumentElement.Name == "presence")
                     {
-                        _readyForCommands = true;
+                        _connectionStatus = NefitConnectionStatus.AuthenticationTest;
                     }
                     else if (xmlDoc.DocumentElement != null && (xmlDoc.DocumentElement.Name == "failure" && xmlDoc.FirstChild.FirstChild.Name == "not-authorized"))
                     {
-                        _serialAccessKeyValid = false;
+                        _connectionStatus = NefitConnectionStatus.InvalidSerialAccessKey;
                         Disconnect();
                     }
                 }
@@ -212,11 +209,15 @@ namespace NefitSharp
                     Disconnect();
                 }
             }
+            else
+            {
+                _connectionStatus = NefitConnectionStatus.Authenticating;
+            }
         }
 
         private void XmppWrite(object sender, string xml)
         {
-            XMLLog("XML >> " + xml);
+            XmlLog("XML >> " + xml);
             if (!xml.StartsWith("<stream"))
             {
                 try
@@ -225,7 +226,7 @@ namespace NefitSharp
                     xmlDoc.LoadXml(xml);
                     if (xmlDoc.DocumentElement != null && xmlDoc.DocumentElement.Name == "presence")
                     {
-                        _readyForCommands = true;
+                        _connectionStatus = NefitConnectionStatus.AuthenticationTest;
                     }
                 }
                 catch (Exception e)
@@ -240,12 +241,12 @@ namespace NefitSharp
         {
             lock (_communicationLock)
             {
-                
+
                 try
                 {
                     NefitHTTPRequest request = new NefitHTTPRequest(url, _client.MyJID, cRrcGatewayPrefix + _serial + "@" + cHost, _encryptionHelper.Encrypt(data));
                     _client.Send(request.ToString());
-                    XMLLog(">> " + request.ToString());
+                    XmlLog(">> " + request);
                     int timeout = cRequestTimeout;
                     while (timeout > 0)
                     {
@@ -253,7 +254,7 @@ namespace NefitSharp
                         {
                             if (_lastMessage != null)
                             {
-                                XMLLog("<< " + _lastMessage.Code);
+                                XmlLog("<< " + _lastMessage.Code);
                                 bool result = _lastMessage.Code == 204 || _lastMessage.Code == 200;
                                 _lastMessage = null;
                                 return result;
@@ -279,7 +280,7 @@ namespace NefitSharp
                 {
                     NefitHTTPRequest request = new NefitHTTPRequest(url, _client.MyJID, cRrcGatewayPrefix + _serial + "@" + cHost);
                     _client.Send(request.ToString());
-                    XMLLog(">> " + request.ToString());
+                    XmlLog(">> " + request);
                     int timeout = cRequestTimeout;
                     while (timeout > 0)
                     {
@@ -288,7 +289,7 @@ namespace NefitSharp
                             if (_lastMessage != null)
                             {
                                 string decrypted = _encryptionHelper.Decrypt(_lastMessage.Payload);
-                                XMLLog("<< " + decrypted);
+                                XmlLog("<< " + decrypted);
                                 if (decrypted.StartsWith("{"))
                                 {
                                     NefitJson<T> obj = JsonConvert.DeserializeObject<NefitJson<T>>(decrypted);
@@ -300,7 +301,7 @@ namespace NefitSharp
                                 }
                                 else
                                 {
-                                    _passwordValid = false;
+                                    _connectionStatus = NefitConnectionStatus.InvalidPassword;
                                 }
                                 timeout = 0;
                             }
@@ -324,12 +325,13 @@ namespace NefitSharp
         #region Sync Methods    
 
         #region Programs
+
         /// <summary>
         /// Returns the active user program, can only be 0, 1 or 2
-        /// Use this in the <see cref="Program"/> command to get the active program
+        /// Use this in the <see cref="GetProgram"/> command to get the active program
         /// </summary>
         /// <returns>A value between 0 and 2, or <see cref="int.MinValue"/> if the command fails</returns>
-        public int ActiveProgram()
+        public int GetActiveProgram()
         {
             try
             {
@@ -347,7 +349,7 @@ namespace NefitSharp
         /// </summary>
         /// <param name="programNumber">The program number which to request from the Easy</param>
         /// <returns>An array of ProgramSwitches (converted to the next timestamp of the switch) or null if the command fails</returns>
-        public ProgramSwitch[] Program(int programNumber)
+        public ProgramSwitch[] GetProgram(int programNumber)
         {
             try
             {
@@ -372,7 +374,7 @@ namespace NefitSharp
         /// </summary>
         /// <param name="nameIndex">The index of the name, can only be 0 or 1</param>
         /// <returns>The name of the switchpoint or null if the command fails</returns>
-        public string SwitchpointName(int nameIndex)
+        public string GetSwitchpointName(int nameIndex)
         {
             try
             {
@@ -395,7 +397,7 @@ namespace NefitSharp
         /// Indicates if the fireplace function is currently activated
         /// </summary>
         /// <returns>True/false or null if the command fails</returns>
-        public bool? FireplaceFunctionActive()
+        public bool? GetFireplaceFunctionActive()
         {
             try
             {
@@ -412,7 +414,7 @@ namespace NefitSharp
         /// Indicates if the preheating setting is active
         /// </summary>
         /// <returns>True/false or null if the command fails</returns>
-        public bool? PreheatingActive()
+        public bool? GetPreheatingActive()
         {
             try
             {
@@ -429,7 +431,7 @@ namespace NefitSharp
         /// Returns the outdoor temperature measured by the Easy or collected over the internet
         /// </summary>
         /// <returns>The outdoor temperature or <see cref="Double.NaN"/> if the command fails</returns>
-        public double OutdoorTemperature()
+        public double GetOutdoorTemperature()
         {
             try
             {
@@ -446,7 +448,7 @@ namespace NefitSharp
         /// Inidicates the Easy service status
         /// </summary>
         /// <returns>Returns a string containing the Easy service status or null if the command fails</returns>
-        public string EasyServiceStatus()
+        public string GetEasyServiceStatus()
         {
             try
             {
@@ -460,10 +462,10 @@ namespace NefitSharp
         }
 
         /// <summary>
-        /// Returns the status of the ignition (presumably if the CV is heating)
+        /// Returns the status of the ignition (presumably if the Central Heating is heating)
         /// </summary>
         /// <returns>True/false or null if the command fails</returns>
-        public bool? IgnitionStatus()
+        public bool? GetIgnitionStatus()
         {
             try
             {
@@ -477,10 +479,10 @@ namespace NefitSharp
         }
 
         /// <summary>
-        /// Returns the status of the CV circuit, if a refill is needed
+        /// Returns the status of the Central Heating circuit, if a refill is needed
         /// </summary>
         /// <returns>True/false or null if the command fails</returns>
-        public bool? RefillNeededStatus()
+        public bool? GetRefillNeededStatus()
         {
             try
             {
@@ -497,7 +499,7 @@ namespace NefitSharp
         /// Unknown
         /// </summary>
         /// <returns>True/false or null if the command fails</returns>
-        public bool? ClosingValveStatus()
+        public bool? GetClosingValveStatus()
         {
             try
             {
@@ -514,7 +516,7 @@ namespace NefitSharp
         /// Unknown
         /// </summary>
         /// <returns>True/false or null if the command fails</returns>
-        public bool? ShortTappingStatus()
+        public bool? GetShortTappingStatus()
         {
             try
             {
@@ -531,7 +533,7 @@ namespace NefitSharp
         /// Indiciates if the Easy detected a leak
         /// </summary>
         /// <returns>True/false or null if the command fails</returns>
-        public bool? SystemLeakingStatus()
+        public bool? GetSystemLeakingStatus()
         {
             try
             {
@@ -548,7 +550,7 @@ namespace NefitSharp
         /// Indiciates if the thermal desinfect program is enabled
         /// </summary>
         /// <returns>True/false or null if the command fails</returns>
-        public bool? ThermalDesinfectEnabled()
+        public bool? GetThermalDesinfectEnabled()
         {
             try
             {
@@ -565,7 +567,7 @@ namespace NefitSharp
         /// Returns the timestamp of the next scheduled thermal desinfect.
         /// </summary>
         /// <returns>The date/time of the next thermal desinfect or a datetime with 0 ticks if the command fails</returns>
-        public DateTime NextThermalDesinfect()
+        public DateTime GetNextThermalDesinfect()
         {
             try
             {
@@ -584,10 +586,10 @@ namespace NefitSharp
         }
 
         /// <summary>
-        /// Returns the current pressure of the CV circuit
+        /// Returns the current pressure of the Central Heating circuit
         /// </summary>
-        /// <returns>The presure of the CV circuit or <see cref="Double.NaN"/> if the command fails</returns>
-        public double SystemPressure()
+        /// <returns>The presure of the Central Heating circuit or <see cref="Double.NaN"/> if the command fails</returns>
+        public double GetSystemPressure()
         {
             try
             {
@@ -601,10 +603,10 @@ namespace NefitSharp
         }
 
         /// <summary>
-        /// Returns the current tempreature of the supply temperature of the CV circuit
+        /// Returns the current tempreature of the supply temperature of the Central Heating circuit
         /// </summary>
-        /// <returns>The presure of the CV circuit or <see cref="Double.NaN"/> if the command fails</returns>
-        public double CentralHeatingSupplyTemperature()
+        /// <returns>The presure of the Central Heating circuit or <see cref="Double.NaN"/> if the command fails</returns>
+        public double GetCentralHeatingSupplyTemperature()
         {
             try
             {
@@ -637,7 +639,7 @@ namespace NefitSharp
         }
 
         /// <summary>
-        /// Returns the current switch point (in other words what the CV is currently doing)
+        /// Returns the current switch point (in other words what the Central Heating is currently doing)
         /// </summary>
         /// <returns>The current switch point of the central heating or null if the command fails</returns>
         public ProgramSwitch GetCurrentSwitchPoint()
@@ -658,7 +660,7 @@ namespace NefitSharp
         }
 
         /// <summary>
-        /// Returns the next switch point (in other words what the CV will be doing)
+        /// Returns the next switch point (in other words what the Central Heating will be doing)
         /// </summary>
         /// <returns>The current switch point of the central heating or null if the command fails</returns>
         public ProgramSwitch GetNextSwitchPoint()
@@ -718,7 +720,7 @@ namespace NefitSharp
                         {
                             if (sample.d != "255-256-65535")
                             {
-                                gasSamples.Add(new GasSample(Convert.ToDateTime(sample.d), sample.hw/10.0, sample.ch/10.0,sample.T/10.0));
+                                gasSamples.Add(new GasSample(Convert.ToDateTime(sample.d), sample.hw/10.0, sample.ch/10.0, sample.T/10.0));
                             }
                             else
                             {
@@ -767,7 +769,7 @@ namespace NefitSharp
         /// Returns the owner information filled in on the Easy app
         /// </summary>
         /// <returns>Returns a array of the following items: Name/Phone number/Email address, or null if the command fails</returns>
-        public string[] OwnerInfo()
+        public string[] GetOwnerInfo()
         {
             try
             {
@@ -788,7 +790,7 @@ namespace NefitSharp
         /// Returns the installer information filled in on the Easy app
         /// </summary>
         /// <returns>Returns a array of the following items: Name/Company/Telephone number/Email address, or null if the command fails</returns>
-        public string[] InstallerInfo()
+        public string[] GetInstallerInfo()
         {
             try
             {
@@ -807,14 +809,14 @@ namespace NefitSharp
 
         /// <summary>
         /// Returns the serial number of the Nefit Easy thermostat, this is not the serial number you enter for communication
-        /// Use <see cref="EasyUUID"/> for that
+        /// Use <see cref="GetEasyUUID"/> for that
         /// </summary>
         /// <returns>The serial number of the Nefit Easy thermostat, or null if the command fails</returns>
-        public string EasySerial()
+        public string GetEasySerial()
         {
             try
             {
-                return Get<string>("/gateway/serialnumber");                
+                return Get<string>("/gateway/serialnumber");
             }
             catch (Exception e)
             {
@@ -822,12 +824,12 @@ namespace NefitSharp
             }
             return null;
         }
-        
+
         /// <summary>
         /// Returns the firmware version of the Nefit Easy thermostat
         /// </summary>
         /// <returns>Firmware version or null if the command fails</returns>
-        public string EasyFirmware()
+        public string GetEasyFirmware()
         {
             try
             {
@@ -844,7 +846,7 @@ namespace NefitSharp
         /// Returns the hardware revision of the Nefit Easy thermostat
         /// </summary>
         /// <returns>Hardware revision or null if the command fails</returns>
-        public string EasyHardware()
+        public string GetEasyHardware()
         {
             try
             {
@@ -861,7 +863,7 @@ namespace NefitSharp
         /// Returns the UUID of the Easy thermostat, this is the number you enter in as serial when connecting
         /// </summary>
         /// <returns>The UUID of the Nefit Easy thermostat, or null if the command fails</returns>
-        public string EasyUUID()
+        public string GetEasyUUID()
         {
             try
             {
@@ -878,25 +880,29 @@ namespace NefitSharp
         /// Returns the way the Easy is updated
         /// </summary>       
         /// <returns>The way the Easy is updated, or null if the command fails</returns>
-        public string EasyUpdateStrategy()
+        public EasyUpdateStrategy GetEasyUpdateStrategy()
         {
-            //TODO: Convert into enum
             try
             {
-                return Get<string>("/gateway/update/strategy");
+                string strategy = Get<string>("/gateway/update/strategy");
+                switch (strategy.ToLower())
+                {
+                    case "automatic":
+                        return EasyUpdateStrategy.Automatic;                    
+                }
             }
             catch (Exception e)
             {
                 ExceptionEvent(e);
             }
-            return null;
+            return EasyUpdateStrategy.Unknown;
         }
 
         /// <summary>
         /// Returns the serial of the central heating appliance
         /// </summary>
         /// <returns>The serial of the central heating appliance, or null if the command fails</returns>
-        public string CVSerial()
+        public string GetCentralHeatingSerial()
         {
             try
             {
@@ -913,7 +919,7 @@ namespace NefitSharp
         /// Returns the version of the central heating appliance
         /// </summary>
         /// <returns>The version of the central heating appliance, or null if the command fails</returns>
-        public string CVVersion()
+        public string GetCentralHeatingVersion()
         {
             try
             {
@@ -930,7 +936,7 @@ namespace NefitSharp
         /// Returns the make of the burner in the central heating appliance 
         /// </summary>
         /// <returns>The make of the burner in the central heating appliance, or null if the command fails</returns>
-        public string CVBurnerMake()
+        public string GetCentralHeatingBurnerMake()
         {
             try
             {
@@ -946,26 +952,34 @@ namespace NefitSharp
         /// <summary>
         /// Returns the proximity setting of the Nefit Easy
         /// </summary>
-        /// <returns>The proximity setting of the Easy or null if the command fails</returns>
-        public string EasySensitivity()
-        {
-            //TODO: convert to enum
+        /// <returns>The proximity setting of the Easy or <see cref="EasySensitivity.Unknown"/> if the command fails</returns>
+        public EasySensitivity GetEasySensitivity()
+        {            
             try
             {
-                return Get<string>("/ecus/rrc/pirSensitivity");
+                string sensitivity = Get<string>("/ecus/rrc/pirSensitivity");
+                switch (sensitivity.ToLower())
+                {
+                    case "high":
+                        return EasySensitivity.High;
+                    case "low":
+                        return EasySensitivity.Low;
+                    case "disable":
+                        return EasySensitivity.Disabled;
+                }
             }
             catch (Exception e)
             {
                 ExceptionEvent(e);
             }
-            return null;
+            return EasySensitivity.Unknown;
         }
 
         /// <summary>
         /// Returns the temperature step setting when changing setpoints 
         /// </summary>
         /// <returns>The temperature step setting for setpoints or <see cref="Double.NaN"/> if the command fails</returns>
-        public double EasyTemperatureStep()
+        public double GetEasyTemperatureStep()
         {
             try
             {
@@ -986,7 +1000,7 @@ namespace NefitSharp
         /// Returns the room temperature offset setting used by the Nefit Easy 
         /// </summary>
         /// <returns>The room temperature offset setting or <see cref="Double.NaN"/> if the command fails</returns>
-        public double EasyTemperatureOffset()
+        public double GetEasyTemperatureOffset()
         {
             try
             {
@@ -1104,22 +1118,24 @@ namespace NefitSharp
 
         /// <summary>
         /// Returns the active user program, can only be 0, 1 or 2
-        /// Use this in the <see cref="Program"/> command to get the active program
+        /// Use this in the <see cref="GetProgram"/> command to get the active program
         /// </summary>
         /// <returns>A value between 0 and 2, or <see cref="int.MinValue"/> if the command fails</returns>
-        public async Task<int> ActiveProgramAsync()
+        public async Task<int> GetActiveProgramAsync()
         {
-            return await Task.Run(() => { return ActiveProgram(); });
+            return await Task.Run(() => { return GetActiveProgram(); });
         }
+
         /// <summary>
         /// Returns the requested user program defined in switch points
         /// </summary>
         /// <param name="programNumber">The program number which to request from the Easy</param>
         /// <returns>An array of ProgramSwitches (converted to the next timestamp of the switch) or null if the command fails</returns>
-        public async Task<ProgramSwitch[]> ProgramAsync(int index)
+        public async Task<ProgramSwitch[]> ProgramAsync(int programNumber)
         {
-            return await Task.Run(() => { return Program(index); });
+            return await Task.Run(() => { return GetProgram(programNumber); });
         }
+
         /// <summary>
         /// Returns the user definable switch point names, there are 2 custom names configurable
         /// </summary>
@@ -1127,31 +1143,34 @@ namespace NefitSharp
         /// <returns>The name of the switchpoint or null if the command fails</returns>
         public async Task<string> SwitchpointNameAsync(int nameIndex)
         {
-            return await Task.Run(() => { return SwitchpointName(nameIndex); });
+            return await Task.Run(() => { return GetSwitchpointName(nameIndex); });
         }
+
         /// <summary>
         /// Indicates if the fireplace function is currently activated
         /// </summary>
         /// <returns>True/false or null if the command fails</returns>
         public async Task<bool?> FireplaceFunctionActiveAsync()
         {
-            return await Task.Run(() => { return FireplaceFunctionActive(); });
+            return await Task.Run(() => { return GetFireplaceFunctionActive(); });
         }
+
         /// <summary>
         /// Indicates if the preheating setting is active
         /// </summary>
         /// <returns>True/false or null if the command fails</returns>
         public async Task<bool?> PreheatingActiveAsync()
         {
-            return await Task.Run(() => { return PreheatingActive(); });
+            return await Task.Run(() => { return GetPreheatingActive(); });
         }
+
         /// <summary>
         /// Returns the outdoor temperature measured by the Easy or collected over the internet
         /// </summary>
         /// <returns>The outdoor temperature or <see cref="Double.NaN"/> if the command fails</returns>
         public async Task<double> OutdoorTemperatureAsync()
         {
-            return await Task.Run(() => { return OutdoorTemperature(); });
+            return await Task.Run(() => { return GetOutdoorTemperature(); });
         }
 
         /// <summary>
@@ -1160,65 +1179,72 @@ namespace NefitSharp
         /// <returns>Returns a string containing the Easy service status or null if the command fails</returns>
         public async Task<string> EasyServiceStatusAsync()
         {
-            return await Task.Run(() => { return EasyServiceStatus(); });
+            return await Task.Run(() => { return GetEasyServiceStatus(); });
         }
 
         /// <summary>
-        /// Returns the status of the ignition (presumably if the CV is heating)
+        /// Returns the status of the ignition (presumably if the Central Heating is heating)
         /// </summary>
         /// <returns>True/false or null if the command fails</returns>
         public async Task<bool?> IgnitionStatusAsync()
         {
-            return await Task.Run(() => { return IgnitionStatus(); });
+            return await Task.Run(() => { return GetIgnitionStatus(); });
         }
+
         /// <summary>
-        /// Returns the status of the CV circuit, if a refill is needed
+        /// Returns the status of the Central Heating circuit, if a refill is needed
         /// </summary>
         /// <returns>True/false or null if the command fails</returns>
         public async Task<bool?> RefillNeededStatusAsync()
         {
-            return await Task.Run(() => { return RefillNeededStatus(); });
+            return await Task.Run(() => { return GetRefillNeededStatus(); });
         }
+
         /// <summary>
         /// Unknown
         /// </summary>
         /// <returns>True/false or null if the command fails</returns>
         public async Task<bool?> ClosingValveStatusAsync()
         {
-            return await Task.Run(() => { return ClosingValveStatus(); });
+            return await Task.Run(() => { return GetClosingValveStatus(); });
         }
+
         /// <summary>
         /// Unknown
         /// </summary>
         /// <returns>True/false or null if the command fails</returns>
         public async Task<bool?> ShortTappingStatusAsync()
         {
-            return await Task.Run(() => { return ShortTappingStatus(); });
+            return await Task.Run(() => { return GetShortTappingStatus(); });
         }
+
         /// <summary>
         /// Indiciates if the Easy detected a leak
         /// </summary>
         /// <returns>True/false or null if the command fails</returns>
         public async Task<bool?> SystemLeakingStatusAsync()
         {
-            return await Task.Run(() => { return SystemLeakingStatus(); });
+            return await Task.Run(() => { return GetSystemLeakingStatus(); });
         }
+
         /// <summary>
-        /// Returns the current pressure of the CV circuit
+        /// Returns the current pressure of the Central Heating circuit
         /// </summary>
-        /// <returns>The presure of the CV circuit or <see cref="Double.NaN"/> if the command fails</returns>
+        /// <returns>The presure of the Central Heating circuit or <see cref="Double.NaN"/> if the command fails</returns>
         public async Task<double> SystemPressureAsync()
         {
-            return await Task.Run(() => { return SystemPressure(); });
+            return await Task.Run(() => { return GetSystemPressure(); });
         }
+
         /// <summary>
-        /// Returns the current tempreature of the supply temperature of the CV circuit
+        /// Returns the current tempreature of the supply temperature of the Central Heating circuit
         /// </summary>
-        /// <returns>The presure of the CV circuit or <see cref="Double.NaN"/> if the command fails</returns>
+        /// <returns>The presure of the Central Heating circuit or <see cref="Double.NaN"/> if the command fails</returns>
         public async Task<double> CentralHeatingSupplyTemperatureAsync()
         {
-            return await Task.Run(() => { return CentralHeatingSupplyTemperature(); });
+            return await Task.Run(() => { return GetCentralHeatingSupplyTemperature(); });
         }
+
         /// <summary>
         /// Returns the current status of the central heating, note; the descriptions are in Dutch
         /// </summary>
@@ -1227,22 +1253,25 @@ namespace NefitSharp
         {
             return await Task.Run(() => { return GetStatusCode(); });
         }
+
         /// <summary>
-        /// Returns the current switch point (in other words what the CV is currently doing)
+        /// Returns the current switch point (in other words what the Central Heating is currently doing)
         /// </summary>
         /// <returns>The current switch point of the central heating or null if the command fails</returns>
         public async Task<ProgramSwitch> GetCurrentSwitchPointAsync()
         {
             return await Task.Run(() => { return GetCurrentSwitchPoint(); });
         }
+
         /// <summary>
-        /// Returns the next switch point (in other words what the CV will be doing)
+        /// Returns the next switch point (in other words what the Central Heating will be doing)
         /// </summary>
         /// <returns>The current switch point of the central heating or null if the command fails</returns>
         public async Task<ProgramSwitch> GetNextSwitchPointAsync()
         {
             return await Task.Run(() => { return GetNextSwitchPoint(); });
         }
+
         /// <summary>
         /// Returns the location of the Easy device
         /// </summary>
@@ -1251,6 +1280,7 @@ namespace NefitSharp
         {
             return await Task.Run(() => { return GetLocation(); });
         }
+
         /// <summary>
         /// Returns all daily gas usage samples collected by the Easy device
         /// </summary>
@@ -1259,6 +1289,7 @@ namespace NefitSharp
         {
             return await Task.Run(() => { return GetGasusage(); });
         }
+
         /// <summary>
         /// Returns the overall status presented in the UI
         /// </summary>
@@ -1267,128 +1298,143 @@ namespace NefitSharp
         {
             return await Task.Run(() => { return GetUIStatus(); });
         }
+
         /// <summary>
         /// Returns the owner information filled in on the Easy app
         /// </summary>
         /// <returns>Returns a array of the following items: Name/Phone number/Email address, or null if the command fails</returns>
         public async Task<string[]> OwnerInfoAsync()
         {
-            return await Task.Run(() => { return OwnerInfo(); });
+            return await Task.Run(() => { return GetOwnerInfo(); });
         }
+
         /// <summary>
         /// Returns the installer information filled in on the Easy app
         /// </summary>
         /// <returns>Returns a array of the following items: Name/Company/Telephone number/Email address, or null if the command fails</returns>
         public async Task<string[]> InstallerInfoAsync()
         {
-            return await Task.Run(() => { return InstallerInfo(); });
+            return await Task.Run(() => { return GetInstallerInfo(); });
         }
 
         /// <summary>
         /// Returns the serial number of the Nefit Easy thermostat, this is not the serial number you enter for communication
-        /// Use <see cref="EasyUUID"/> for that
+        /// Use <see cref="GetEasyUUID"/> for that
         /// </summary>
         /// <returns>The serial number of the Nefit Easy thermostat, or null if the command fails</returns>
         public async Task<string> EasySerialAsync()
         {
-            return await Task.Run(() => { return EasySerial(); });
+            return await Task.Run(() => { return GetEasySerial(); });
         }
+
         /// <summary>
         /// Returns the firmware version of the Nefit Easy thermostat
         /// </summary>
         /// <returns>Firmware version or null if the command fails</returns>
         public async Task<string> EasyFirmwareAsync()
         {
-            return await Task.Run(() => { return EasyFirmware(); });
+            return await Task.Run(() => { return GetEasyFirmware(); });
         }
+
         /// <summary>
         /// Returns the hardware revision of the Nefit Easy thermostat
         /// </summary>
         /// <returns>Hardware revision or null if the command fails</returns>
         public async Task<string> EasyHardwareAsync()
         {
-            return await Task.Run(() => { return EasyHardware(); });
+            return await Task.Run(() => { return GetEasyHardware(); });
         }
+
         /// <summary>
         /// Returns the UUID of the Easy thermostat, this is the number you enter in as serial when connecting
         /// </summary>
         /// <returns>The UUID of the Nefit Easy thermostat, or null if the command fails</returns>
         public async Task<string> EasyUUIDAsync()
         {
-            return await Task.Run(() => { return EasyUUID(); });
+            return await Task.Run(() => { return GetEasyUUID(); });
         }
+
         /// <summary>       
         /// Returns the way the Easy is updated
         /// </summary>       
         /// <returns>The way the Easy is updated, or null if the command fails</returns>
-        public async Task<string> EasyUpdateStrategyAsync()
+        public async Task<EasyUpdateStrategy> EasyUpdateStrategyAsync()
         {
-            return await Task.Run(() => { return EasyUpdateStrategy(); });
+            return await Task.Run(() => { return GetEasyUpdateStrategy(); });
         }
+
         /// <summary>
         /// Returns the serial of the central heating appliance
         /// </summary>
         /// <returns>The serial of the central heating appliance, or null if the command fails</returns>
-        public async Task<string> CVSerialAsync()
+        public async Task<string> CentralHeatingSerialAsync()
         {
-            return await Task.Run(() => { return CVSerial(); });
+            return await Task.Run(() => { return GetCentralHeatingSerial(); });
         }
+
         /// <summary>
         /// Returns the version of the central heating appliance
         /// </summary>
         /// <returns>The version of the central heating appliance, or null if the command fails</returns>
-        public async Task<string> CVVersionAsync()
+        public async Task<string> CentralHeatingVersionAsync()
         {
-            return await Task.Run(() => { return CVVersion(); });
+            return await Task.Run(() => { return GetCentralHeatingVersion(); });
         }
+
         /// <summary>
         /// Returns the make of the burner in the central heating appliance 
         /// </summary>
         /// <returns>The make of the burner in the central heating appliance, or null if the command fails</returns>
-        public async Task<string> CVBurnerMakeAsync()
+        public async Task<string> CentralHeatingBurnerMakeAsync()
         {
-            return await Task.Run(() => { return CVBurnerMake(); });
+            return await Task.Run(() => { return GetCentralHeatingBurnerMake(); });
         }
+
         /// <summary>
         /// Indiciates if the thermal desinfect program is enabled
         /// </summary>
         /// <returns>True/false or null if the command fails</returns>
         public async Task<bool?> ThermalDesinfectEnabledAsync()
         {
-            return await Task.Run(() => { return ThermalDesinfectEnabled(); });
+            return await Task.Run(() => { return GetThermalDesinfectEnabled(); });
         }
+
         /// <summary>
         /// Returns the timestamp of the next scheduled thermal desinfect.
         /// </summary>
         /// <returns>The date/time of the next thermal desinfect or a datetime with 0 ticks if the command fails</returns>
         public async Task<DateTime> NextThermalDesinfectAsync()
         {
-            return await Task.Run(() => { return NextThermalDesinfect(); });
+            return await Task.Run(() => { return GetNextThermalDesinfect(); });
         }
+
         /// <summary>
         /// Returns the proximity setting of the Nefit Easy
         /// </summary>
         /// <returns>The proximity setting of the Easy or null if the command fails</returns>
-        public async Task<string> EasySensitivityAsync()
+        public async Task<EasySensitivity> EasySensitivityAsync()
         {
-            return await Task.Run(() => { return EasySensitivity(); });
+            return await Task.Run(() => { return GetEasySensitivity(); });
         }
+
         /// <summary>
         /// Returns the temperature step setting when changing setpoints 
         /// </summary>
         /// <returns>The temperature step setting for setpoints or <see cref="Double.NaN"/> if the command fails</returns>
         public async Task<double> EasyTemperatureStepAsync()
         {
-            return await Task.Run(() => { return EasyTemperatureStep(); });
+            return await Task.Run(() => { return GetEasyTemperatureStep(); });
         }
+
         /// <summary>
         /// Returns the room temperature offset setting used by the Nefit Easy 
         /// </summary>
         /// <returns>The room temperature offset setting or <see cref="Double.NaN"/> if the command fails</returns>
         public async Task<double> EasyTemperatureOffsetAsync()
         {
-            return await Task.Run(() => { return EasyTemperatureOffset(); });
+            return await Task.Run(() => { return GetEasyTemperatureOffset(); });
         }
+
         /// <summary>
         /// Changes the hot water mode to on or off when the Easy is in clock program mode
         /// </summary>
@@ -1398,6 +1444,7 @@ namespace NefitSharp
         {
             return await Task.Run(() => { return SetHotWaterModeClockProgram(onOff); });
         }
+
         /// <summary>
         /// Changes the hot water mode to on or off when the Easy is in manual program mode
         /// </summary>
@@ -1407,6 +1454,7 @@ namespace NefitSharp
         {
             return await Task.Run(() => { return SetHotWaterModeManualProgram(onOff); });
         }
+
         /// <summary>
         /// Switches the Easy between manual and program mode
         /// </summary>
@@ -1416,6 +1464,7 @@ namespace NefitSharp
         {
             return await Task.Run(() => { return SetUserMode(newMode); });
         }
+
         /// <summary>
         /// Changes the setpoint temperature
         /// </summary>
@@ -1426,10 +1475,21 @@ namespace NefitSharp
             return await Task.Run(() => { return SetTemperature(temperature); });
         }
 
-        # endregion
+        #endregion
 
 #endif
 
         #endregion
+
+#if DEBUG
+        public UIStatus ParseUIStatus()
+        {
+            string decrypted = " {\"id\":\"/ecus/rrc/uiStatus\",\"type\":\"uiUpdate\",\"recordable\":0,\"writeable\":0,\"value\":{\"CTD\":\"2016-02-06T16:04:44+00:00 Sa\",\"CTR\":\"room\",\"UMD\":\"clock\",\"MMT\":\"19.5\",\"CPM\":\"auto\",\"CSP\":\"36\",\"TOR\":\"on\",\"TOD\":\"0\",\"TOT\":\"20.0\",\"TSP\":\"20.0\",\"IHT\":\"20.10\",\"IHS\":\"ok\",\"DAS\":\"off\",\"TAS\":\"off\",\"HMD\":\"off\",\"ARS\":\"init\",\"FPA\":\"off\",\"ESI\":\"off\",\"BAI\":\"No\",\"BLE\":\"false\",\"BBE\":\"false\",\"BMR\":\"false\",\"PMR\":\"false\",\"RS\":\"off\",\"DHW\":\"on\",\"HED_EN\":\"false\",\"HED_DEV\":\"false\",\"HED_DB\":\"\"}}";
+
+            NefitJson<NefitStatus> obj = JsonConvert.DeserializeObject<NefitJson<NefitStatus>>(decrypted);
+            return new UIStatus(obj.value);
+        }
+#endif
+
     }
 }

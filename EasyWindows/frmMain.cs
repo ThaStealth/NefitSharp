@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -40,6 +41,8 @@ namespace DigitalThermostat
         private static Color _lightBlueColor = Color.FromArgb(129, 183, 255);
         private static Color _blueColor = Color.FromArgb(0, 109, 254);
         private static Color _redColor = Color.FromArgb(251, 0, 0);
+        private static Color _lightRedColor = Color.FromArgb(229,116,116);
+        
 
         public FrmMain()
         {
@@ -90,18 +93,18 @@ namespace DigitalThermostat
             _currentStatus = null;            
             _currentScreenMode = ScreenMode.MainScreen;
             _client = new NefitClient(Settings.Default.serial, Settings.Default.accessKey, Settings.Default.password);
-            _client.XMLLog += Log;
+            _client.XmlLog += Log;
             if (await _client.ConnectAsync())
             {
                 tmrUpdate.Enabled = true;
                 tmrUpdate_Tick(this,new EventArgs());
             }
-            else if (!_client.SerialAccessKeyValid)
+            else if (_client.ConnectionStatus == NefitConnectionStatus.InvalidSerialAccessKey)
             {               
                 MessageBox.Show(@"Authentication error: serial or accesskey invalid, please recheck your credentials", @"Authentication error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 settingsToolStripMenuItem_Click(this, new EventArgs());
             }
-            else if (!_client.PasswordValid)
+            else if (_client.ConnectionStatus == NefitConnectionStatus.InvalidPassword)
             {
                 MessageBox.Show(@"Authentication error: password invalid, please recheck your credentials", @"Authentication error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 settingsToolStripMenuItem_Click(this, new EventArgs());
@@ -120,7 +123,7 @@ namespace DigitalThermostat
             try
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                if ((_client != null && !_client.Connected) || _currentStatus == null)
+                if ((_client != null && _client.ConnectionStatus != NefitConnectionStatus.Connected) || _currentStatus == null)
                 {
                     e.Graphics.DrawString("X", new Font("Leelawadee UI", 110F * Settings.Default.scale, FontStyle.Regular), new SolidBrush(Color.Red), new PointF(250 * Settings.Default.scale, 221 * Settings.Default.scale));
                 }
@@ -144,6 +147,381 @@ namespace DigitalThermostat
             {
             }
         }
+
+        //private void DrawProgramDial(PaintEventArgs e)
+        //{
+        //    if (_currentStatus.UserMode == UserModes.Clock)
+        //    {
+        //        Pen whitePen = new Pen(Color.White, 16 * Settings.Default.scale);
+        //        Pen whitePenSmall = new Pen(Color.White, 4 * Settings.Default.scale);
+        //        for (int i = 0; i < 12; i++)
+        //        {
+        //            e.Graphics.DrawArc(whitePen, 135 * Settings.Default.scale, 144 * Settings.Default.scale, 362 * Settings.Default.scale, 362 * Settings.Default.scale, 271 + (i * 29) + i, 28);
+        //        }
+        //        if (_currentProgram != null)
+        //        {
+        //            DateTime now = DateTime.Now;
+        //            Pen bluePen = new Pen(_blueColor, 4 * Settings.Default.scale);
+        //            Pen lightBluePen = new Pen(_lightBlueColor, 4 * Settings.Default.scale);
+        //            Pen redPen = new Pen(_redColor, 4 * Settings.Default.scale);
+        //            Pen lightRedPen = new Pen(_lightRedColor, 4 * Settings.Default.scale);
+
+        //            double average = 0;
+        //            int numSwitchPoints = 0;
+
+        //            for (int j = 0; j < _currentProgram.Length; j++)
+        //            {
+        //                int i = 0;
+        //                while(i<12)
+        //                {
+        //                    int hour = i;
+        //                    while (hour < now.Hour)
+        //                    {
+        //                        hour += 12;
+        //                    }
+        //                    DateTime switchPointToDraw = DateTime.Today.AddHours(hour);
+        //                    if (_currentProgram[j].Timestamp <= switchPointToDraw && _currentProgram[(j + 1) % _currentProgram.Length].Timestamp > switchPointToDraw)
+        //                    {
+        //                        numSwitchPoints++;
+        //                        average += _currentProgram[j].Temperature;
+        //                        break;
+        //                    }
+        //                    i++;
+        //                }                        
+        //            }
+        //            average /= numSwitchPoints;
+        //            ProgramSwitch previousSwitchPoint =null;
+
+        //            for (int i = 0; i < 12; i++)
+        //            {
+        //                int hour = i;
+        //                while (hour < now.Hour)
+        //                {
+        //                    hour += 12;
+        //                }
+        //                DateTime switchPointToDraw = DateTime.Today.AddHours(hour);
+        //                int segments = 1;
+        //                if (switchPointToDraw.Hour == now.Hour)
+        //                {
+        //                    //exception situation
+        //                    segments = 28;
+        //                }
+
+        //                for (int j = 0; j < _currentProgram.Length; j++)
+        //                {
+        //                    if (switchPointToDraw <= _currentProgram[j].Timestamp && switchPointToDraw.AddMinutes(59) >= _currentProgram[j].Timestamp)
+        //                    {
+        //                        segments = 28;///(( _currentProgram[j].Timestamp.Minute*28)/60);
+        //                        break;
+        //                    }
+        //                }
+
+        //                for (int q = 0; q < segments; q++)
+        //                {
+        //                    DateTime tmpSwitchPoint = switchPointToDraw.AddMinutes(Math.Round(2.14*q*(28/segments)));
+        //                    if (tmpSwitchPoint.Hour == now.Hour && tmpSwitchPoint.Minute < now.Minute)
+        //                    {
+        //                        tmpSwitchPoint = tmpSwitchPoint.AddHours(12);
+        //                    }
+        //                    ProgramSwitch swi = null;
+        //                    for (int j = 0; j < _currentProgram.Length; j++)
+        //                    {
+        //                        if (_currentProgram[j].Timestamp <= tmpSwitchPoint && _currentProgram[(j + 1)%_currentProgram.Length].Timestamp > tmpSwitchPoint)
+        //                        {
+        //                            swi = _currentProgram[j];
+        //                            break;
+        //                        }
+        //                    }
+        //                    if (swi != null)
+        //                    {
+
+        //                        Pen p;
+        //                        if (swi.Timestamp <= now && _currentScreenMode == ScreenMode.SetpointScreen)
+        //                        {
+        //                            p = whitePenSmall;
+        //                        }
+        //                        else if (swi.Temperature >= average)
+        //                        {
+        //                            if (previousSwitchPoint != null && previousSwitchPoint != swi && previousSwitchPoint.Temperature >= average)
+        //                            {
+        //                                p = lightRedPen;
+        //                            }
+        //                            else
+        //                            {
+        //                                p = redPen;
+        //                            }                                    
+        //                        }
+        //                        else
+        //                        {
+        //                            if (previousSwitchPoint != null && previousSwitchPoint != swi && previousSwitchPoint.Temperature < average)
+        //                            {
+        //                                p = lightBluePen;
+        //                            }
+        //                            else
+        //                            {
+        //                                p = bluePen;
+        //                            }                                    
+        //                        }
+        //                        e.Graphics.DrawArc(p, 147*Settings.Default.scale, 156*Settings.Default.scale, 338*Settings.Default.scale, 338*Settings.Default.scale, 271 + (i*29) + i + ((28F/segments)*q), 28/segments);
+        //                    }
+        //                    previousSwitchPoint = swi;
+        //                }
+        //            }
+        //            CurrentTimeIndicator(e);
+        //        }
+        //    }
+        //    else
+        //    {
+        //        e.Graphics.DrawArc(new Pen(Color.FromArgb(128, 128, 128), 16 * Settings.Default.scale), 135 * Settings.Default.scale, 144 * Settings.Default.scale, 362 * Settings.Default.scale, 362 * Settings.Default.scale, 0, 360);
+        //    }
+        //}
+
+        private void DrawProgramDial(PaintEventArgs e)
+        {
+            if (_currentStatus.UserMode == UserModes.Clock)
+            {
+                Pen whitePen = new Pen(Color.White, 16 * Settings.Default.scale);
+                Pen whitePenSmall = new Pen(Color.White, 4 * Settings.Default.scale);
+                for (int i = 0; i < 12; i++)
+                {
+                    e.Graphics.DrawArc(whitePen, 135 * Settings.Default.scale, 144 * Settings.Default.scale, 362 * Settings.Default.scale, 362 * Settings.Default.scale, 271 + (i * 29) + i, 28);
+                }
+                if (_currentProgram != null)
+                {
+                    DateTime now = DateTime.Now;
+                    Pen bluePen = new Pen(_blueColor, 4 * Settings.Default.scale);
+                    Pen lightBluePen = new Pen(_lightBlueColor, 4 * Settings.Default.scale);
+                    Pen redPen = new Pen(_redColor, 4 * Settings.Default.scale);
+                    Pen lightRedPen = new Pen(_lightRedColor, 4 * Settings.Default.scale);
+
+                    double average = 0;
+
+                    List<ProgramSwitch> switchpoints = new List<ProgramSwitch>();
+                    for (int j = 0; j < _currentProgram.Length; j++)
+                    {
+                        int i = 0;
+                        while (i < 12)
+                        {
+                            int hour = i;
+                            while (hour < now.Hour)
+                            {
+                                hour += 12;
+                            }
+                            DateTime switchPointToDraw = DateTime.Today.AddHours(hour);
+                         //   if (_currentProgram[j].Timestamp <= switchPointToDraw && _currentProgram[(j + 1) % _currentProgram.Length].Timestamp > switchPointToDraw)
+                         if(_currentProgram[j].Timestamp.Date == DateTime.Today.Date)
+                            {
+                                switchpoints.Add(_currentProgram[j]);
+                                average += _currentProgram[j].Temperature;
+                                break;
+                            }
+                            i++;
+                        }
+                    }
+                    average /= switchpoints.Count;                    
+                    ProgramSwitch previousSwitchPoint = null;
+                    Pen previousPen = null;
+                    for (int i = 0; i < 12; i++)
+                    {
+                        DateTime switchPointToDraw =  DateTime.Today.AddHours(i+DateTime.Now.Hour);
+                        int segments = 1;
+                        if (i==0)
+                        {
+                            segments = 28;
+                        }
+
+                        for (int j = 0; j < _currentProgram.Length; j++)
+                        {
+                            if (switchPointToDraw <= _currentProgram[j].Timestamp && switchPointToDraw.AddMinutes(59) >= _currentProgram[j].Timestamp)
+                            {
+                                segments = 28;///(( _currentProgram[j].Timestamp.Minute*28)/60);
+                                break;
+                            }
+                        }
+
+                        for (int q = 0; q < segments; q++)
+                        {
+                            DateTime tmpSwitchPoint = switchPointToDraw.AddMinutes(Math.Round(2.14 * q * (28 / segments)));
+                            if (i==0 && tmpSwitchPoint.Minute < now.Minute)
+                            {
+                                tmpSwitchPoint = tmpSwitchPoint.AddHours(12);
+                            }
+                            ProgramSwitch swi = null;
+                            for (int j = 0; j < _currentProgram.Length; j++)
+                            {
+                                if (_currentProgram[j].Timestamp <= tmpSwitchPoint && _currentProgram[(j + 1) % _currentProgram.Length].Timestamp > tmpSwitchPoint)
+                                {
+                                    swi = _currentProgram[j];
+                                    break;
+                                }
+                            }
+                            if (swi != null)
+                            {
+                                Pen p;
+                                if (swi.Timestamp <= now && _currentScreenMode == ScreenMode.SetpointScreen)
+                                {
+                                    p = whitePenSmall;
+                                }
+                                else if (swi == previousSwitchPoint)
+                                {
+                                    p = previousPen;
+                                }
+                                else if (swi.Temperature >= average)
+                                {
+                                    if (previousSwitchPoint != null && previousSwitchPoint != swi && previousSwitchPoint.Temperature >= average)
+                                    {
+                                        p = redPen;
+                                    }
+                                    else
+                                    {
+                                        p = redPen;
+                                    }
+                                }
+                                else
+                                {
+                                    if (previousSwitchPoint != null && previousSwitchPoint != swi && previousSwitchPoint.Temperature < average)
+                                    {
+                                        p = bluePen;
+                                    }
+                                    else
+                                    {
+                                        p = bluePen;
+                                    }
+                                }
+                                e.Graphics.DrawArc(p, 147 * Settings.Default.scale, 156 * Settings.Default.scale, 338 * Settings.Default.scale, 338 * Settings.Default.scale, 271 + ((tmpSwitchPoint.Hour%12)  * 29) + (tmpSwitchPoint.Hour % 12) + ((28F / segments) * q), 28 / segments);
+                                if (i > 0 || tmpSwitchPoint.Hour - DateTime.Now.Hour < 1)
+                                {
+                                    previousPen = p;
+                                }
+                            }
+                            if (i > 0 || tmpSwitchPoint.Hour-DateTime.Now.Hour < 1)
+                            {
+                                previousSwitchPoint = swi;
+                            }
+
+                        }
+                    }
+                    CurrentTimeIndicator(e);
+                }
+            }
+            else
+            {
+                e.Graphics.DrawArc(new Pen(Color.FromArgb(128, 128, 128), 16 * Settings.Default.scale), 135 * Settings.Default.scale, 144 * Settings.Default.scale, 362 * Settings.Default.scale, 362 * Settings.Default.scale, 0, 360);
+            }
+        }
+
+        //private void DrawProgramDial2(PaintEventArgs e)
+        //{
+        //    if (_currentStatus.UserMode == UserModes.Clock)
+        //    {
+        //        Pen whitePen = new Pen(Color.White, 16 * Settings.Default.scale);
+        //        Pen whitePenSmall = new Pen(Color.White, 4 * Settings.Default.scale);
+        //        for (int i = 0; i < 12; i++)
+        //        {
+        //            e.Graphics.DrawArc(whitePen, 135 * Settings.Default.scale, 144 * Settings.Default.scale, 362 * Settings.Default.scale, 362 * Settings.Default.scale, 271 + (i * 29) + i, 28);
+        //        }
+        //        if (_currentProgram != null)
+        //        {
+        //            Pen bluePen = new Pen(_blueColor, 4 * Settings.Default.scale);
+        //            Pen lightBluePen = new Pen(_lightBlueColor, 4 * Settings.Default.scale);
+        //            Pen redPen = new Pen(_redColor, 4 * Settings.Default.scale);
+        //            for (int i = 0; i < 12; i++)
+        //            {
+        //                int hour = i;
+        //                if (i < DateTime.Now.Hour)
+        //                {
+        //                    hour += 12;
+        //                }
+
+        //                int segments;
+        //                if ((i == DateTime.Now.Hour % 12 && _currentProgram[1].Timestamp.Hour - DateTime.Now.Hour < 12) || hour == _currentProgram[1].Timestamp.Hour)
+        //                {
+        //                    segments = 28;
+        //                }
+        //                else
+        //                {
+        //                    segments = 1;
+        //                }
+
+        //                bool currentStatus = _currentProgram[0].Mode == ProgramMode.Awake;
+        //                bool drawCurrentStatus = false;
+        //                for (int q = 0; q < segments; q++)
+        //                {
+        //                    bool showRedColor;
+        //                    if (hour == DateTime.Now.Hour)
+        //                    {
+        //                        if (_currentProgram[1].Timestamp.Hour - 12 <= hour)
+        //                        {
+        //                            if (DateTime.Now.Minute / 2.14 <= q)
+        //                            {
+        //                                showRedColor = currentStatus;
+        //                                drawCurrentStatus = true;
+        //                            }
+        //                            else if (q < Convert.ToInt32(_currentProgram[1].Timestamp.Minute / 2.14) || _currentProgram[1].Timestamp.Hour - 12 < hour)
+        //                            {
+        //                                //all minutes which have passed need to be in the new color
+        //                                showRedColor = _currentProgram[1].Mode == ProgramMode.Awake;
+        //                            }
+        //                            else
+        //                            {
+        //                                showRedColor = currentStatus;
+        //                                drawCurrentStatus = true;
+        //                            }
+        //                        }
+        //                        else
+        //                        {
+        //                            showRedColor = currentStatus;
+        //                            drawCurrentStatus = true;
+        //                        }
+        //                    }
+        //                    else if (hour == _currentProgram[1].Timestamp.Hour)
+        //                    {
+        //                        if (q < Convert.ToInt32(_currentProgram[1].Timestamp.Minute / 2.14))
+        //                        {
+        //                            showRedColor = currentStatus;
+        //                            drawCurrentStatus = true;
+        //                        }
+        //                        else
+        //                        {
+        //                            showRedColor = _currentProgram[1].Mode == ProgramMode.Awake;
+        //                        }
+        //                    }
+        //                    else
+        //                    {
+        //                        if (hour >= DateTime.Now.Hour && hour < _currentProgram[1].Timestamp.Hour)
+        //                        {
+        //                            showRedColor = currentStatus;
+        //                            drawCurrentStatus = true;
+        //                        }
+        //                        else
+        //                        {
+        //                            showRedColor = _currentProgram[1].Mode == ProgramMode.Awake;
+        //                        }
+        //                    }
+        //                    Pen p;
+        //                    if (drawCurrentStatus && _currentScreenMode == ScreenMode.SetpointScreen)
+        //                    {
+        //                        p = whitePenSmall;
+        //                    }
+        //                    else if (showRedColor)
+        //                    {
+        //                        p = redPen;
+        //                    }
+        //                    else
+        //                    {
+        //                        p = bluePen;
+        //                    }
+        //                    e.Graphics.DrawArc(p, 147 * Settings.Default.scale, 156 * Settings.Default.scale, 338 * Settings.Default.scale, 338 * Settings.Default.scale, 271 + (i * 29) + i + ((28F / segments) * q), 28 / segments);
+        //                }
+        //            }
+        //            CurrentTimeIndicator(e);
+        //        }
+        //    }
+        //    else
+        //    {
+        //        e.Graphics.DrawArc(new Pen(Color.FromArgb(128, 128, 128), 16 * Settings.Default.scale), 135 * Settings.Default.scale, 144 * Settings.Default.scale, 362 * Settings.Default.scale, 362 * Settings.Default.scale, 0, 360);
+        //    }
+        //}
 
         private void PaintHotwaterScreen(PaintEventArgs e)
         {
@@ -178,23 +556,7 @@ namespace DigitalThermostat
             e.Graphics.DrawString((int)_displaySetpoint + ",", new Font("Leelawadee UI", 90F*Settings.Default.scale, FontStyle.Regular), new SolidBrush(Color.White), new PointF(212*Settings.Default.scale, 241*Settings.Default.scale));
             e.Graphics.DrawString((Math.Round(_displaySetpoint - (int)_displaySetpoint, 1)*10).ToString(), new Font("Leelawadee UI", 45F*Settings.Default.scale, FontStyle.Regular), new SolidBrush(Color.White), new PointF(387*Settings.Default.scale, 304*Settings.Default.scale));
 
-            if (_currentStatus.UserMode == UserModes.Clock && _currentProgram != null)
-            {
-                Pen whitePen = new Pen(Color.White, 16 * Settings.Default.scale);
-                Pen whitePenSmall = new Pen(Color.White, 4 * Settings.Default.scale);
-                for (int i = 0; i < 12; i++)
-                {
-                    int segmentStart = 271 + (i*29) + i;
-                    e.Graphics.DrawArc(whitePen, 135*Settings.Default.scale, 144*Settings.Default.scale, 362*Settings.Default.scale, 362*Settings.Default.scale, segmentStart, 28);
-                    e.Graphics.DrawArc(whitePenSmall, 147*Settings.Default.scale, 156*Settings.Default.scale, 338*Settings.Default.scale, 338*Settings.Default.scale, segmentStart, 28);
-                }
-
-                CurrentTimeIndicator(e);
-            }
-            else
-            {
-                e.Graphics.DrawArc(new Pen(Color.FromArgb(128, 128, 128), 16 * Settings.Default.scale), 135 * Settings.Default.scale, 144 * Settings.Default.scale, 362 * Settings.Default.scale, 362 * Settings.Default.scale, 0, 360);
-            }
+            DrawProgramDial(e);
 
         }
 
@@ -271,108 +633,8 @@ namespace DigitalThermostat
                 DrawScaledImage(e.Graphics, Resources.boilerOff, new Point(270, 395));
                 DrawScaledImage(e.Graphics, Resources.leaf, new Point(330, 395));
             }
-
-
-            if (_currentStatus.UserMode == UserModes.Clock)
-            {
-                Pen whitePen = new Pen(Color.White, 16 * Settings.Default.scale);
-                for (int i = 0; i < 12; i++)
-                {                    
-                    e.Graphics.DrawArc(whitePen, 135*Settings.Default.scale, 144*Settings.Default.scale, 362*Settings.Default.scale, 362*Settings.Default.scale, 271 + (i * 29) + i, 28);             
-                }
-                if (_currentProgram != null)
-                {
-                    Pen bluePen = new Pen(_blueColor, 4*Settings.Default.scale);
-                    Pen lightBluePen = new Pen(_lightBlueColor, 4*Settings.Default.scale);
-                    Pen redPen = new Pen(_redColor, 4*Settings.Default.scale);
-                    for (int i = 0; i < 12; i++)
-                    {
-                        int hour = i;
-                        if (i < DateTime.Now.Hour)
-                        {
-                            hour += 12;
-                        }
-                        
-
-                        int segments;
-                        if ((i == DateTime.Now.Hour%12 && _currentProgram[1].Timestamp.Hour - DateTime.Now.Hour < 12) || hour == _currentProgram[1].Timestamp.Hour)
-                        {
-                            segments = 28;
-                        }
-                        else
-                        {
-                            segments = 1;
-                        }
-
-                        bool currentStatus = _currentProgram[0].On;
-
-                        for (int q = 0; q < segments; q++)
-                        {
-                            bool showRedColor;
-                            if (hour == DateTime.Now.Hour)
-                            {
-                                if (_currentProgram[1].Timestamp.Hour - 12 <= hour)
-                                {
-                                    if (DateTime.Now.Minute/2.14 <= q)
-                                    {
-                                        showRedColor = currentStatus;
-                                    }
-                                    else if (q < Convert.ToInt32(_currentProgram[1].Timestamp.Minute/2.14) || _currentProgram[1].Timestamp.Hour - 12 < hour)
-                                    {
-                                        //all minutes which have passed need to be in the new color
-                                        showRedColor = _currentProgram[1].On;
-                                    }
-                                    else
-                                    {
-                                        showRedColor = currentStatus;
-                                    }
-                                }
-                                else
-                                {
-                                    showRedColor = currentStatus;
-                                }
-                            }
-                            else if (hour == _currentProgram[1].Timestamp.Hour)
-                            {
-                                if (q < Convert.ToInt32(_currentProgram[1].Timestamp.Minute/2.14))
-                                {
-                                    showRedColor = currentStatus;
-                                }
-                                else
-                                {
-                                    showRedColor = _currentProgram[1].On;
-                                }
-                            }
-                            else
-                            {
-                                if (hour >= DateTime.Now.Hour && hour < _currentProgram[1].Timestamp.Hour)
-                                {
-                                    showRedColor = currentStatus;
-                                }
-                                else
-                                {
-                                    showRedColor = _currentProgram[1].On;
-                                }
-                            }
-                            Pen p;
-                            if (showRedColor)
-                            {
-                                p = redPen;
-                            }
-                            else
-                            {
-                                p = bluePen;
-                            }                            
-                            e.Graphics.DrawArc(p, 147*Settings.Default.scale, 156*Settings.Default.scale, 338*Settings.Default.scale, 338*Settings.Default.scale, 271 + (i * 29) + i + ((28F/segments)*q), 28/segments);
-                        }
-                    }
-                    CurrentTimeIndicator(e);
-                }
-            }
-            else
-            {
-                e.Graphics.DrawArc(new Pen(Color.FromArgb(128, 128, 128), 16*Settings.Default.scale), 135*Settings.Default.scale, 144*Settings.Default.scale, 362*Settings.Default.scale, 362*Settings.Default.scale, 0, 360);
-            }
+        
+            DrawProgramDial(e);
 
             if (_currentStatus.UserMode == UserModes.Manual)
             {
@@ -447,7 +709,7 @@ namespace DigitalThermostat
             try
             {
                 Point corrPos = new Point(MousePosition.X - Left, MousePosition.Y - Top);
-                if (_client != null && _client.Connected)
+                if (_client != null && _client.ConnectionStatus == NefitConnectionStatus.Connected)
                 {
                     switch (_currentScreenMode)
                     {
@@ -568,37 +830,30 @@ namespace DigitalThermostat
                         Invalidate();
                     }
                 }
-                if (_client.Connected)
+                if (_client.ConnectionStatus == NefitConnectionStatus.Connected)
                 {
                     UIStatus stat = await _client.GetUIStatusAsync();
+                    //UIStatus stat =_client.ParseUIStatus();
                     if (stat != null)
                     {
                         _currentStatus = stat;
                         Invalidate();
                     }
-                    if ((_currentProgram == null && stat!=null && stat.ClockProgram == ClockProgram.Auto) || (_currentProgram != null && stat != null && _currentProgram.Length > 1 && (DateTime.Now >= _currentProgram[1].Timestamp)))
-                    {                        
-                        ProgramSwitch curr = await _client.GetCurrentSwitchPointAsync();
-                        ProgramSwitch next = await _client.GetNextSwitchPointAsync();
-                        if (curr != null && next != null)
+                    if ((_currentProgram == null && stat != null && stat.ClockProgram == ClockProgram.Auto) || (_currentProgram != null && stat != null && _currentProgram.Length > 1 && (DateTime.Now >= _currentProgram[1].Timestamp)))
+                    {
+                        if (_currentStatus.HedEnabled)
                         {
-                            _currentProgram = new ProgramSwitch[] {curr, next};
-                            Invalidate();
+                            _currentProgram = await _client.ProgramAsync(2);
                         }
-                        else 
+                        else
                         {
-                            //alternative route
-                            int activeProgram = await _client.ActiveProgramAsync();
-                            if (activeProgram >= 0 && activeProgram <= 2)
+                            int program = await _client.GetActiveProgramAsync();
+                            if (program >= 0 && program <= 2)
                             {
-                                ProgramSwitch[] switches = await _client.ProgramAsync(activeProgram);
-                                if (switches != null)
-                                {
-                                    _currentProgram = new ProgramSwitch[] {switches[stat.CurrentProgramSwitch], switches[(stat.CurrentProgramSwitch + 1)%switches.Length]};
-                                    Invalidate();
-                                }
+                                _currentProgram = await _client.ProgramAsync(program);
                             }
                         }
+                        Invalidate();                      
                     }
 
                     if (!_temperatureStepDetermined)
@@ -627,7 +882,7 @@ namespace DigitalThermostat
             {
                 _client.Disconnect();
             }
-            _client.XMLLog -= Log;
+            _client.XmlLog -= Log;
             _client = null;
             FrmSettings settings = new FrmSettings();
             settings.ShowDialog();
