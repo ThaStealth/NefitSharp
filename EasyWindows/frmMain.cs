@@ -92,7 +92,7 @@ namespace DigitalThermostat
             _temperatureStepDetermined = false;
             _currentStatus = null;            
             _currentScreenMode = ScreenMode.MainScreen;
-            _client = new NefitClient(Settings.Default.serial, Settings.Default.accessKey, Settings.Default.password);
+            _client = new NefitClient(Settings.Default.serial, Settings.Default.accessKey, StringCipher.Decrypt(Settings.Default.password, FrmSettings.cPassPhrase));
             _client.XmlLog += Log;
             if (await _client.ConnectAsync())
             {
@@ -127,7 +127,7 @@ namespace DigitalThermostat
                 {
                     e.Graphics.DrawString("X", new Font("Leelawadee UI", 110F * Settings.Default.scale, FontStyle.Regular), new SolidBrush(Color.Red), new PointF(250 * Settings.Default.scale, 221 * Settings.Default.scale));
                 }
-                if (_currentStatus != null)
+               else
                 {
                     switch (_currentScreenMode)
                     {
