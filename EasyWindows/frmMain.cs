@@ -90,24 +90,28 @@ namespace DigitalThermostat
         private async void Start()
         {
             _temperatureStepDetermined = false;
-            _currentStatus = null;            
+            _currentStatus = null;
             _currentScreenMode = ScreenMode.MainScreen;
-            _client = new NefitClient(Settings.Default.serial, Settings.Default.accessKey, StringCipher.Decrypt(Settings.Default.password, FrmSettings.cPassPhrase));
-            _client.XmlLog += Log;
-            if (await _client.ConnectAsync())
+            if (!string.IsNullOrEmpty(Settings.Default.serial))
             {
-                tmrUpdate.Enabled = true;
-                tmrUpdate_Tick(this,new EventArgs());
-            }
-            else if (_client.ConnectionStatus == NefitConnectionStatus.InvalidSerialAccessKey)
-            {               
-                MessageBox.Show(@"Authentication error: serial or accesskey invalid, please recheck your credentials", @"Authentication error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                settingsToolStripMenuItem_Click(this, new EventArgs());
-            }
-            else if (_client.ConnectionStatus == NefitConnectionStatus.InvalidPassword)
-            {
-                MessageBox.Show(@"Authentication error: password invalid, please recheck your credentials", @"Authentication error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                settingsToolStripMenuItem_Click(this, new EventArgs());
+                _client = new NefitClient(Settings.Default.serial, Settings.Default.accessKey, StringCipher.Decrypt(Settings.Default.password, FrmSettings.cPassPhrase));
+
+                _client.XmlLog += Log;
+                if (await _client.ConnectAsync())
+                {
+                    tmrUpdate.Enabled = true;
+                    tmrUpdate_Tick(this, new EventArgs());
+                }
+                else if (_client != null && _client.ConnectionStatus == NefitConnectionStatus.InvalidSerialAccessKey)
+                {
+                    MessageBox.Show(@"Authentication error: serial or accesskey invalid, please recheck your credentials", @"Authentication error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    settingsToolStripMenuItem_Click(this, new EventArgs());
+                }
+                else if (_client != null && _client.ConnectionStatus == NefitConnectionStatus.InvalidPassword)
+                {
+                    MessageBox.Show(@"Authentication error: password invalid, please recheck your credentials", @"Authentication error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    settingsToolStripMenuItem_Click(this, new EventArgs());
+                }
             }
         }
 
@@ -881,8 +885,9 @@ namespace DigitalThermostat
             if (_client != null)
             {
                 _client.Disconnect();
+                _client.XmlLog -= Log;
             }
-            _client.XmlLog -= Log;
+           
             _client = null;
             FrmSettings settings = new FrmSettings();
             settings.ShowDialog();
